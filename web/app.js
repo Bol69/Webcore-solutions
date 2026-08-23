@@ -102,6 +102,7 @@ const state = {
   measurements: [],      // relevés de tout le groupe
   forfeits: [],          // la liste de gages partagée
   wheelSpins: [],        // les tirages de roue (candidats de la semaine)
+  wheelReady: true,      // false tant que schema.sql n'a pas été relancé
   weekResults: [],       // bilans hebdo figés (les plus récents d'abord)
   period: "week",
   tab: "feed",
@@ -243,6 +244,8 @@ async function loadAll() {
   state.forfeits     = forfeits.data || [];
   state.weekResults  = weeks.data || [];
   state.wheelSpins   = spins.data || [];
+  // La table n'existe pas encore = schema.sql pas relancé depuis l'ajout de la roue
+  state.wheelReady   = !spins.error;
   render();
 }
 
@@ -593,7 +596,15 @@ function renderWheel() {
   $("#wheel-state").textContent = open ? "ouverte jusqu'à dimanche minuit"
                                        : "elle ouvre samedi";
 
-  if (!items.length) {
+  if (!state.wheelReady) {
+    $("#wheel-state").textContent = "à activer";
+    help.innerHTML =
+      "La roue n'est pas encore activée sur la base. Dans <b>Supabase → SQL Editor</b>, " +
+      "relance tout le fichier <code>supabase/schema.sql</code>, puis exécute " +
+      "<code>notify pgrst, 'reload schema';</code>. Rien ne sera effacé.";
+    btn.disabled = true;
+    btn.textContent = "Roue pas encore activée";
+  } else if (!items.length) {
     help.textContent = "Ajoutez d'abord des gages à la liste, juste en dessous.";
     btn.disabled = true;
     btn.textContent = "Tourner la roue";
@@ -646,9 +657,14 @@ $("#wheel-spin").onclick = async () => {
     await loadAll();
   } catch (e) {
     const msg = String(e.message || e);
-    toast(/samedi/i.test(msg) ? "La roue n'ouvre que samedi et dimanche."
-        : /vide/i.test(msg)   ? "La liste des gages est vide."
-        : "Impossible de tourner la roue : " + msg, 4000);
+    if (/schema cache|could not find the function/i.test(msg)) {
+      state.wheelReady = false;
+      toast("Roue pas encore activée : relance supabase/schema.sql dans Supabase.", 5000);
+    } else {
+      toast(/samedi/i.test(msg) ? "La roue n'ouvre que samedi et dimanche."
+          : /vide/i.test(msg)   ? "La liste des gages est vide."
+          : "Impossible de tourner la roue : " + msg, 4000);
+    }
   } finally {
     wheelBusy = false;
     renderWheel();
