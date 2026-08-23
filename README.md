@@ -28,6 +28,8 @@ Tu fais ta séance → tu postes la preuve → tu marques des points → tes pot
   depuis le téléphone.
 - 🔥 **Séries (streaks)** — les jours consécutifs rapportent plus.
 - 📊 **Classement** semaine / mois / total, avec podium.
+- 🗓️ **Tableau des séances** — une grille qui montre, semaine par semaine, qui a
+  fait quoi et quel jour. On remonte les semaines passées avec les flèches.
 - 🔔 **Notifications push** — « Bilel a fait sa séance 🏋️ · Muscu · 60 min · +12 pts ».
 - ⚡ **Feed en direct** — pas besoin de rafraîchir, ça arrive tout seul.
 - 💬 **Réactions** 💪 🔥 👏 😤 🐐 sous chaque séance.

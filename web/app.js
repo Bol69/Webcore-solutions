@@ -104,6 +104,7 @@ const state = {
   weekResults: [],       // bilans hebdo figés (les plus récents d'abord)
   period: "week",
   tab: "feed",
+  tableWeek: null,       // null = semaine en cours, sinon un lundi (YYYY-MM-DD)
   draft: { sport: CONFIG.SPORTS[0].key, duration: 45, distance: "", photo: null },
 };
 const signedUrls = new Map(); // photo_path -> { url, exp }
@@ -292,6 +293,7 @@ function render() {
   renderBanner();
   renderFeed();
   renderRanking();
+  renderTable();
   renderGages();
   renderMe();
 }
@@ -630,6 +632,117 @@ function renderHistory() {
       }).join("")}`;
   }).join("");
 }
+
+/* ---------- tableau des séances ---------- *
+ *  Une grille : une ligne par personne, une colonne par jour de la semaine.
+ *  Les flèches permettent de remonter les semaines passées.
+ * --------------------------------------------------------------------- */
+const DOW_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
+
+function renderTable() {
+  const current = weekStart(todayStr());
+  const ws = state.tableWeek || current;
+  const t = todayStr();
+  const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+
+  $("#table-week-label").textContent =
+    ws === current ? "Cette semaine"
+                   : "Semaine du " + frDate(ws, { day: "numeric", month: "long" });
+  $("#table-next").disabled = ws >= current;
+
+  // moi en premier, puis les autres par ordre alphabétique
+  const people = [...state.profiles.values()].sort((a, b) =>
+    a.id === state.user.id ? -1
+    : b.id === state.user.id ? 1
+    : String(a.pseudo || "").localeCompare(String(b.pseudo || "")));
+
+  const head =
+    `<div class="tg-cell tg-corner"></div>` +
+    days.map((d, i) => `
+      <div class="tg-cell tg-head${d === t ? " today" : ""}">
+        <span class="tg-dow">${DOW_SHORT[i]}</span>
+        <span class="tg-num">${Number(d.slice(8, 10))}</span>
+      </div>`).join("");
+
+  const body = people.map((p) => {
+    const g = goalOf(p.id);
+    const prog = weekProgress(p.id, ws);
+    const held = prog.sessions >= g.sessions_target &&
+                 (!g.km_target || prog.km >= g.km_target);
+
+    const cells = days.map((d) => {
+      const done = state.workouts.filter((w) => w.user_id === p.id && w.done_on === d);
+      const marks = (d === t ? " today" : "") + (d > t ? " future" : "");
+      if (!done.length) return `<div class="tg-cell tg-day${marks}"></div>`;
+
+      const detail = done.map((w) =>
+        `${w.sport} ${w.duration_min} min` +
+        (w.distance_km ? ` · ${fmtKm(w.distance_km)} km` : "")).join(" + ");
+      const when = frDate(d, { weekday: "long", day: "numeric", month: "long" });
+      return `
+        <button type="button" class="tg-cell tg-day on${marks}"
+                data-detail="${esc(`${p.pseudo || "?"} — ${when} : ${detail}`)}">
+          <span class="tg-emoji">${sportEmoji(done[0].sport)}</span>
+          ${done.length > 1 ? `<span class="tg-mult">${done.length}</span>` : ""}
+        </button>`;
+    }).join("");
+
+    return `
+      <div class="tg-cell tg-name" title="${esc(p.pseudo || "?")}">
+        <span class="tg-av">${esc(p.emoji || "💪")}</span>
+        <span class="tg-score${held ? " ok" : ""}">${prog.sessions}/${g.sessions_target}</span>
+      </div>${cells}`;
+  }).join("");
+
+  $("#table-grid").innerHTML = head + body;
+
+  // --- le détail, jour par jour
+  const end = addDays(ws, 6);
+  const rows = state.workouts
+    .filter((w) => w.done_on >= ws && w.done_on <= end)
+    .sort((a, b) =>
+      b.done_on.localeCompare(a.done_on) ||
+      String(b.created_at).localeCompare(String(a.created_at)));
+
+  $("#table-count").textContent =
+    rows.length ? `${rows.length} séance${rows.length > 1 ? "s" : ""}` : "";
+
+  if (!rows.length) {
+    $("#table-list").innerHTML =
+      `<p class="empty-mini">Aucune séance cette semaine-là.</p>`;
+    return;
+  }
+
+  let lastDay = "";
+  $("#table-list").innerHTML = rows.map((w) => {
+    const p = state.profiles.get(w.user_id);
+    const dayHead = w.done_on === lastDay ? "" :
+      `<div class="tl-day">${frDate(w.done_on, {
+        weekday: "long", day: "numeric", month: "long" })}</div>`;
+    lastDay = w.done_on;
+    return dayHead + `
+      <div class="tl-row">
+        <span class="tl-who">${esc(p?.emoji || "")} ${esc(p?.pseudo || "?")}</span>
+        <span class="tl-what">${sportEmoji(w.sport)} ${esc(w.sport)} · ${w.duration_min} min${
+          w.distance_km ? ` · ${fmtKm(w.distance_km)} km` : ""}</span>
+        <span class="tl-pts">+${w.points}</span>
+      </div>`;
+  }).join("");
+}
+
+$("#table-prev").onclick = () => {
+  state.tableWeek = addDays(state.tableWeek || weekStart(todayStr()), -7);
+  renderTable();
+};
+$("#table-next").onclick = () => {
+  const next = addDays(state.tableWeek || weekStart(todayStr()), 7);
+  state.tableWeek = next >= weekStart(todayStr()) ? null : next;
+  renderTable();
+};
+$("#table-grid").addEventListener("click", (ev) => {
+  const cell = ev.target.closest("[data-detail]");
+  if (cell) toast(cell.dataset.detail, 3600);
+});
 
 /* ---------- réglage de mon contrat hebdo ---------- */
 let goalChipsBuilt = false;

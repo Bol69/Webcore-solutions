@@ -117,12 +117,13 @@ code{background:var(--bg-2);padding:2px 6px;border-radius:6px;font-size:12.5px;c
 /* ---------- Onglets ---------- */
 .tabs{
   position:sticky;top:calc(var(--safe-t) + 63px);z-index:19;
-  display:flex;gap:6px;padding:10px 16px;
+  display:flex;gap:5px;padding:10px 16px;
   background:rgba(13,15,20,.88);backdrop-filter:blur(14px);
 }
 .tab{
-  flex:1;padding:9px 0;border-radius:11px;border:none;
+  flex:1;padding:9px 2px;border-radius:11px;border:none;
   background:var(--bg-2);color:var(--muted);font-weight:600;cursor:pointer;
+  font-size:13px;letter-spacing:-.2px;white-space:nowrap;
 }
 .tab.active{background:var(--card-2);color:var(--txt)}
 
@@ -415,6 +416,72 @@ details.data-table th:last-child{text-align:right}
 
 .empty-mini{color:var(--muted);font-size:13.5px;padding:6px 0;line-height:1.5}
 
+/* ---------- Tableau des séances ---------- */
+.week-nav{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.week-nav-label{
+  flex:1;text-align:center;font-weight:700;font-size:15px;letter-spacing:-.2px;
+}
+.nav-arrow{
+  flex:none;width:34px;height:34px;border-radius:11px;
+  border:1px solid var(--line);background:var(--card-2);color:var(--txt);
+  font-size:19px;line-height:1;cursor:pointer;
+}
+.nav-arrow:disabled{opacity:.3;cursor:default}
+
+.tgrid{display:grid;grid-template-columns:minmax(52px,1.35fr) repeat(7,1fr);gap:4px}
+.tg-cell{
+  display:flex;align-items:center;justify-content:center;
+  min-height:38px;border-radius:10px;font-size:13px;
+}
+.tg-corner{min-height:0}
+.tg-head{flex-direction:column;gap:1px;min-height:34px;color:var(--muted)}
+.tg-dow{font-size:11px;font-weight:700;letter-spacing:.4px}
+.tg-num{font-size:11px;opacity:.75}
+.tg-head.today{color:var(--accent-2)}
+
+.tg-name{
+  justify-content:flex-start;gap:5px;padding-left:2px;
+  background:var(--card-2);border:1px solid var(--line);
+}
+.tg-av{font-size:15px;line-height:1}
+.tg-score{font-size:11.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.tg-score.ok{color:var(--green)}
+
+.tg-day{
+  position:relative;padding:0;border:1px solid var(--line);
+  background:var(--bg-2);color:var(--txt);
+}
+.tg-day.future{opacity:.4}
+.tg-day.today{border-color:var(--accent-2)}
+.tg-day.on{
+  background:linear-gradient(160deg,rgba(255,95,46,.28),rgba(255,176,32,.14));
+  border-color:rgba(255,95,46,.5);cursor:pointer;
+}
+.tg-emoji{font-size:16px;line-height:1}
+.tg-mult{
+  position:absolute;right:2px;bottom:1px;
+  font-size:9px;font-weight:700;color:var(--accent-2);
+}
+.tg-legend{margin:12px 0 0;text-align:center}
+
+.tlist{display:flex;flex-direction:column}
+.tl-day{
+  font-size:12px;font-weight:700;color:var(--muted);
+  padding:12px 0 5px;
+}
+.tl-day::first-letter{text-transform:uppercase}
+.tl-day:first-child{padding-top:2px}
+.tl-row{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 0;border-top:1px solid var(--line);font-size:13.5px;
+}
+.tl-who{flex:none;font-weight:600;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-what{flex:1;min-width:0;color:var(--muted);font-size:13px;line-height:1.35}
+.tl-pts{flex:none;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+
 @media (max-width:360px){
-  .tab{font-size:13px}
+  .tab{font-size:11.5px;padding:9px 1px}
+  .tgrid{gap:3px}
+  .tg-cell{min-height:34px}
+  .tg-emoji{font-size:14px}
 }

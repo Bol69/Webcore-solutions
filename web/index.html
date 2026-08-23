@@ -83,6 +83,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="feed" type="button">Feed</button>
     <button class="tab" data-tab="rank" type="button">Classement</button>
+    <button class="tab" data-tab="table" type="button">Tableau</button>
     <button class="tab" data-tab="gages" type="button">Gages<span id="gage-dot" class="dot hidden"></span></button>
     <button class="tab" data-tab="me" type="button">Moi</button>
   </nav>
@@ -117,6 +118,27 @@
           <li><b>+2 pts</b> par jour de série en cours <span class="muted">(max +10)</span></li>
           <li>À partir de la <b>3ᵉ séance du même jour</b>&nbsp;: 0 pt <span class="muted">(anti-triche)</span></li>
         </ul>
+      </div>
+    </div>
+
+    <!-- ---------- TABLEAU DES SÉANCES ---------- -->
+    <div id="tab-table" class="tabpane hidden">
+      <div class="card">
+        <div class="week-nav">
+          <button id="table-prev" class="nav-arrow" type="button" aria-label="Semaine précédente">‹</button>
+          <div class="week-nav-label" id="table-week-label">Cette semaine</div>
+          <button id="table-next" class="nav-arrow" type="button" aria-label="Semaine suivante">›</button>
+        </div>
+        <div id="table-grid" class="tgrid"></div>
+        <p class="muted small tg-legend">Touche une case pleine pour voir le détail.</p>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h4>Le détail</h4>
+          <span class="muted small" id="table-count"></span>
+        </div>
+        <div id="table-list" class="tlist"></div>
       </div>
     </div>
 
