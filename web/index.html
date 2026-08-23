@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>TeamSport</title>
+<meta name="description" content="Le pointage sport privé entre potes.">
+<meta name="theme-color" content="#0d0f14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TeamSport">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ ÉCRAN 0 : configuration manquante ============ -->
+<section id="screen-setup" class="screen center hidden">
+  <div class="card setup">
+    <div class="logo-big">🏆</div>
+    <h1>Presque prêt&nbsp;!</h1>
+    <p class="muted">L'app n'est pas encore reliée à sa base de données.</p>
+    <ol class="setup-steps">
+      <li>Crée un projet gratuit sur <b>supabase.com</b></li>
+      <li>Colle le contenu de <code>supabase/schema.sql</code> dans le SQL Editor</li>
+      <li>Remplis <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code> dans <code>web/config.js</code></li>
+    </ol>
+    <p class="muted small">Le guide complet pas à pas est dans <code>docs/SETUP.md</code>.</p>
+  </div>
+</section>
+
+<!-- ============ ÉCRAN 1 : connexion ============ -->
+<section id="screen-auth" class="screen center hidden">
+  <div class="card auth">
+    <div class="logo-big">🏆</div>
+    <h1 id="auth-title">TeamSport</h1>
+    <p class="muted" id="auth-sub">Le pointage sport, entre nous.</p>
+
+    <form id="auth-form" autocomplete="on">
+      <div class="field signup-only hidden">
+        <label for="f-pseudo">Ton prénom / pseudo</label>
+        <input id="f-pseudo" type="text" maxlength="20" placeholder="Bilel" autocomplete="nickname">
+      </div>
+      <div class="field signup-only hidden">
+        <label>Ton avatar</label>
+        <div id="emoji-picker" class="emoji-picker"></div>
+      </div>
+      <div class="field">
+        <label for="f-email">Email</label>
+        <input id="f-email" type="email" required placeholder="toi@exemple.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="f-password">Mot de passe</label>
+        <input id="f-password" type="password" required minlength="6" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <p id="auth-error" class="error hidden"></p>
+      <button id="auth-submit" class="btn primary block" type="submit">Se connecter</button>
+    </form>
+
+    <p class="muted small center-text" style="margin-top:18px">
+      <span id="auth-switch-label">Pas encore de compte&nbsp;?</span>
+      <button id="auth-switch" class="link" type="button">Créer un compte</button>
+    </p>
+  </div>
+</section>
+
+<!-- ============ ÉCRAN 2 : l'app ============ -->
+<section id="screen-app" class="screen hidden">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo-sm">🏆</span>
+      <div>
+        <div class="group-name" id="group-name">La Team</div>
+        <div class="group-sub" id="week-label">Semaine en cours</div>
+      </div>
+    </div>
+    <button id="btn-me" class="avatar-btn" type="button"><span id="my-emoji">💪</span></button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="feed" type="button">Feed</button>
+    <button class="tab" data-tab="rank" type="button">Classement</button>
+    <button class="tab" data-tab="me" type="button">Moi</button>
+  </nav>
+
+  <main class="content">
+
+    <!-- ---------- FEED ---------- -->
+    <div id="tab-feed" class="tabpane">
+      <div id="today-banner" class="banner hidden"></div>
+      <div id="feed" class="feed"></div>
+      <div id="feed-empty" class="empty hidden">
+        <div class="empty-emoji">🫥</div>
+        <h3>Rien pour l'instant</h3>
+        <p class="muted">Sois le premier à poster ta preuve de séance.</p>
+      </div>
+    </div>
+
+    <!-- ---------- CLASSEMENT ---------- -->
+    <div id="tab-rank" class="tabpane hidden">
+      <div class="segmented" id="rank-period">
+        <button class="seg active" data-period="week" type="button">Semaine</button>
+        <button class="seg" data-period="month" type="button">Mois</button>
+        <button class="seg" data-period="all" type="button">Total</button>
+      </div>
+      <div id="podium" class="podium"></div>
+      <div id="ranking" class="ranking"></div>
+      <div class="card info">
+        <h4>Comment on gagne des points&nbsp;?</h4>
+        <ul class="rules">
+          <li><b>10 pts</b> par séance prouvée</li>
+          <li><b>+1 pt</b> par tranche de 10 min au-delà de 30 min <span class="muted">(max +10)</span></li>
+          <li><b>+2 pts</b> par jour de série en cours <span class="muted">(max +10)</span></li>
+          <li>À partir de la <b>3ᵉ séance du même jour</b>&nbsp;: 0 pt <span class="muted">(anti-triche)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ---------- MOI ---------- -->
+    <div id="tab-me" class="tabpane hidden">
+      <div class="card profile-card">
+        <div class="profile-head">
+          <div class="avatar-lg" id="me-emoji">💪</div>
+          <div>
+            <div class="profile-name" id="me-pseudo">—</div>
+            <div class="muted small" id="me-email">—</div>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><div class="stat-val" id="me-total">0</div><div class="stat-lbl">points total</div></div>
+          <div class="stat"><div class="stat-val" id="me-streak">0</div><div class="stat-lbl">jours de série</div></div>
+          <div class="stat"><div class="stat-val" id="me-count">0</div><div class="stat-lbl">séances</div></div>
+        </div>
+        <div class="goal">
+          <div class="goal-head">
+            <span>Objectif de la semaine</span>
+            <span id="goal-text">0 / 4</span>
+          </div>
+          <div class="goal-bar"><div id="goal-fill" class="goal-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Notifications</h4>
+        <p class="muted small" id="push-help">Reçois une alerte quand un pote poste sa séance.</p>
+        <button id="btn-push" class="btn block" type="button">Activer les notifications</button>
+        <p class="muted small" id="push-status"></p>
+      </div>
+
+      <div class="card">
+        <h4>Mon avatar</h4>
+        <div id="me-emoji-picker" class="emoji-picker"></div>
+      </div>
+
+      <button id="btn-logout" class="btn ghost block" type="button">Se déconnecter</button>
+      <p class="muted small center-text" style="margin:18px 0 0">TeamSport · groupe privé</p>
+    </div>
+
+  </main>
+
+  <button id="fab" class="fab" type="button" aria-label="Ajouter une séance">
+    <span>＋</span> J'ai fait ma séance
+  </button>
+</section>
+
+<!-- ============ MODALE : nouvelle séance ============ -->
+<div id="modal" class="modal hidden">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h2>Ta séance</h2>
+      <button id="modal-close" class="icon-btn" type="button" aria-label="Fermer">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <label class="field-label">Sport</label>
+      <div id="sport-chips" class="chips"></div>
+
+      <label class="field-label">Durée</label>
+      <div id="duration-chips" class="chips"></div>
+      <div class="duration-row">
+        <input id="duration-input" type="number" min="5" max="600" step="5" value="45" inputmode="numeric">
+        <span class="muted">minutes</span>
+      </div>
+
+      <label class="field-label">Preuve (photo obligatoire)</label>
+      <label for="photo-input" id="photo-drop" class="photo-drop">
+        <span id="photo-placeholder">📸 Prendre une photo</span>
+        <img id="photo-preview" class="hidden" alt="Aperçu de la preuve">
+      </label>
+      <input id="photo-input" type="file" accept="image/*" hidden>
+
+      <label class="field-label" for="note-input">Petit mot <span class="muted">(facultatif)</span></label>
+      <input id="note-input" type="text" maxlength="200" placeholder="Jambes détruites 🥲">
+
+      <p id="modal-error" class="error hidden"></p>
+    </div>
+
+    <div class="modal-foot">
+      <button id="submit-workout" class="btn primary block" type="button">Valider ma séance</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VISIONNEUSE PHOTO ============ -->
+<div id="lightbox" class="lightbox hidden"><img id="lightbox-img" alt="Preuve"></div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

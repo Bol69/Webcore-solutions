@@ -1,0 +1,295 @@
+/* =====================================================================
+   TeamSport — feuille de style (mobile first, thème sombre)
+   ===================================================================== */
+
+:root{
+  --bg:#0d0f14;
+  --bg-2:#141821;
+  --card:#171c26;
+  --card-2:#1d2330;
+  --line:#252c3a;
+  --txt:#eef2f8;
+  --muted:#8b94a7;
+  --accent:#ff5f2e;
+  --accent-2:#ffb020;
+  --green:#2fd07a;
+  --blue:#4d8dff;
+  --radius:18px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+button,input{font-family:inherit;font-size:16px}
+.hidden{display:none !important}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.center-text{text-align:center}
+h1,h2,h3,h4{margin:0 0 8px}
+h1{font-size:26px;letter-spacing:-.5px}
+h4{font-size:15px}
+
+.screen{min-height:100dvh}
+.screen.center{display:flex;align-items:center;justify-content:center;padding:24px}
+
+/* ---------- Cartes / boutons ---------- */
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:18px;
+  margin-bottom:14px;
+}
+.card.info{background:transparent}
+.btn{
+  border:1px solid var(--line);
+  background:var(--card-2);
+  color:var(--txt);
+  padding:14px 18px;
+  border-radius:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:transform .06s ease, filter .15s ease;
+}
+.btn:active{transform:scale(.98)}
+.btn.block{display:block;width:100%}
+.btn.primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  border:none;color:#160b04;
+}
+.btn.ghost{background:transparent;color:var(--muted)}
+.btn[disabled]{opacity:.55;pointer-events:none}
+.link{background:none;border:none;color:var(--accent-2);font-weight:600;cursor:pointer;padding:0}
+.icon-btn{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:6px}
+.error{color:#ff7a6b;font-size:14px;margin:10px 0 0}
+
+/* ---------- Auth / setup ---------- */
+.auth,.setup{width:100%;max-width:400px;text-align:center;padding:28px 22px}
+.logo-big{font-size:52px;line-height:1;margin-bottom:10px}
+.field{text-align:left;margin-bottom:14px}
+.field label,.field-label{
+  display:block;font-size:13px;color:var(--muted);
+  margin:0 0 7px;font-weight:600;
+}
+.field-label{margin-top:18px}
+.field input,.duration-row input,#note-input{
+  width:100%;padding:14px;border-radius:13px;
+  background:var(--bg-2);border:1px solid var(--line);color:var(--txt);
+}
+.field input:focus,#note-input:focus,.duration-row input:focus{outline:2px solid var(--accent);outline-offset:0}
+#auth-form{margin-top:22px}
+.setup-steps{text-align:left;color:var(--muted);font-size:14px;line-height:1.65;padding-left:20px}
+.setup-steps b{color:var(--txt)}
+code{background:var(--bg-2);padding:2px 6px;border-radius:6px;font-size:12.5px;color:var(--accent-2)}
+
+.emoji-picker{display:flex;flex-wrap:wrap;gap:8px}
+.emoji-opt{
+  font-size:22px;background:var(--bg-2);border:2px solid transparent;
+  border-radius:12px;width:46px;height:46px;cursor:pointer;
+}
+.emoji-opt.sel{border-color:var(--accent);background:var(--card-2)}
+
+/* ---------- Barre du haut ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:calc(var(--safe-t) + 14px) 16px 12px;
+  background:rgba(13,15,20,.88);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.logo-sm{font-size:24px}
+.group-name{font-weight:800;font-size:17px;letter-spacing:-.3px}
+.group-sub{font-size:12px;color:var(--muted)}
+.avatar-btn{
+  width:42px;height:42px;border-radius:50%;font-size:21px;
+  background:var(--card-2);border:1px solid var(--line);cursor:pointer;
+}
+
+/* ---------- Onglets ---------- */
+.tabs{
+  position:sticky;top:calc(var(--safe-t) + 63px);z-index:19;
+  display:flex;gap:6px;padding:10px 16px;
+  background:rgba(13,15,20,.88);backdrop-filter:blur(14px);
+}
+.tab{
+  flex:1;padding:9px 0;border-radius:11px;border:none;
+  background:var(--bg-2);color:var(--muted);font-weight:600;cursor:pointer;
+}
+.tab.active{background:var(--card-2);color:var(--txt)}
+
+.content{padding:6px 16px 160px;max-width:560px;margin:0 auto}
+
+/* ---------- Bandeau du jour ---------- */
+.banner{
+  border-radius:14px;padding:13px 15px;margin:8px 0 14px;
+  font-size:14px;font-weight:600;
+  background:linear-gradient(135deg,rgba(255,95,46,.16),rgba(255,176,32,.10));
+  border:1px solid rgba(255,95,46,.32);
+}
+.banner.done{
+  background:linear-gradient(135deg,rgba(47,208,122,.14),rgba(47,208,122,.06));
+  border-color:rgba(47,208,122,.35);
+}
+
+/* ---------- Feed ---------- */
+.feed{display:flex;flex-direction:column;gap:14px}
+.post{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;
+}
+.post-head{display:flex;align-items:center;gap:11px;padding:13px 15px}
+.post-avatar{
+  width:40px;height:40px;border-radius:50%;font-size:20px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--card-2);flex:none;
+}
+.post-who{font-weight:700;font-size:15px}
+.post-meta{font-size:12.5px;color:var(--muted)}
+.post-pts{
+  margin-left:auto;flex:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#160b04;font-weight:800;font-size:13px;
+  padding:6px 11px;border-radius:999px;
+}
+.post-pts.zero{background:var(--card-2);color:var(--muted)}
+.post-photo{width:100%;display:block;background:var(--bg-2);cursor:zoom-in;aspect-ratio:4/3;object-fit:cover}
+.post-note{padding:12px 15px 0;font-size:14.5px;line-height:1.45}
+.post-tags{display:flex;gap:7px;padding:12px 15px 0;flex-wrap:wrap}
+.tag{
+  background:var(--bg-2);border:1px solid var(--line);
+  padding:5px 10px;border-radius:999px;font-size:12.5px;color:var(--muted);font-weight:600;
+}
+.tag.fire{color:var(--accent-2);border-color:rgba(255,176,32,.35)}
+.post-react{display:flex;gap:7px;padding:13px 15px;flex-wrap:wrap;align-items:center}
+.react{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:999px;
+  padding:6px 11px;font-size:15px;cursor:pointer;line-height:1;
+}
+.react.on{border-color:var(--accent);background:rgba(255,95,46,.14)}
+.react-count{font-size:12px;font-weight:700;color:var(--muted);margin-left:4px}
+.post-del{margin-left:auto;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer}
+
+.empty{text-align:center;padding:50px 20px}
+.empty-emoji{font-size:44px;margin-bottom:8px}
+
+/* ---------- Classement ---------- */
+.segmented{display:flex;gap:6px;background:var(--bg-2);padding:5px;border-radius:14px;margin:10px 0 16px}
+.seg{flex:1;padding:9px 0;border:none;border-radius:10px;background:transparent;color:var(--muted);font-weight:600;cursor:pointer}
+.seg.active{background:var(--card-2);color:var(--txt)}
+
+.podium{display:flex;align-items:flex-end;gap:10px;margin-bottom:18px;min-height:150px}
+.pod{flex:1;text-align:center}
+.pod-emoji{font-size:30px}
+.pod-name{font-size:12.5px;font-weight:700;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pod-bar{
+  border-radius:12px 12px 0 0;padding:8px 0;font-weight:800;font-size:15px;
+  background:var(--card-2);border:1px solid var(--line);border-bottom:none;
+}
+.pod:nth-child(1) .pod-bar{background:linear-gradient(180deg,var(--accent-2),var(--accent));color:#160b04;border:none}
+
+.ranking{display:flex;flex-direction:column;gap:9px;margin-bottom:16px}
+.rank-row{
+  display:flex;align-items:center;gap:12px;
+  background:var(--card);border:1px solid var(--line);
+  border-radius:15px;padding:12px 14px;
+}
+.rank-row.me{border-color:var(--accent)}
+.rank-pos{width:24px;font-weight:800;color:var(--muted);text-align:center}
+.rank-emoji{font-size:22px}
+.rank-name{font-weight:700;font-size:15px}
+.rank-sub{font-size:12px;color:var(--muted)}
+.rank-pts{margin-left:auto;font-weight:800;font-size:17px}
+.rank-pts span{font-size:11px;color:var(--muted);font-weight:600}
+.rules{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:14px;line-height:1.75}
+.rules b{color:var(--txt)}
+
+/* ---------- Moi ---------- */
+.profile-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.avatar-lg{
+  width:58px;height:58px;border-radius:50%;font-size:29px;
+  display:flex;align-items:center;justify-content:center;background:var(--card-2);
+}
+.profile-name{font-weight:800;font-size:19px}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.stat{background:var(--bg-2);border-radius:14px;padding:13px 8px;text-align:center}
+.stat-val{font-size:23px;font-weight:800}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.goal-head{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:8px}
+.goal-bar{height:11px;background:var(--bg-2);border-radius:999px;overflow:hidden}
+.goal-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .5s ease}
+.goal-fill.done{background:linear-gradient(90deg,var(--green),#7ef0b0)}
+
+/* ---------- Bouton flottant ---------- */
+.fab{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--safe-b) + 20px);z-index:30;
+  display:flex;align-items:center;gap:8px;
+  padding:16px 26px;border:none;border-radius:999px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#160b04;font-weight:800;font-size:16px;cursor:pointer;
+  box-shadow:0 10px 34px rgba(255,95,46,.42);
+}
+.fab:active{transform:translateX(-50%) scale(.97)}
+.fab span{font-size:20px}
+
+/* ---------- Modale ---------- */
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.65);display:flex;align-items:flex-end}
+.modal-sheet{
+  background:var(--bg-2);width:100%;max-height:92dvh;
+  border-radius:24px 24px 0 0;display:flex;flex-direction:column;
+  max-width:560px;margin:0 auto;animation:up .25s ease;
+}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 4px}
+.modal-head h2{font-size:20px;margin:0}
+.modal-body{padding:0 18px 8px;overflow-y:auto;flex:1}
+.modal-body .field-label:first-child{margin-top:12px}
+.modal-foot{padding:14px 18px calc(var(--safe-b) + 18px);border-top:1px solid var(--line)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  background:var(--card);border:1.5px solid var(--line);color:var(--txt);
+  padding:9px 13px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;
+}
+.chip.sel{border-color:var(--accent);background:rgba(255,95,46,.14)}
+.duration-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.duration-row input{width:110px;text-align:center}
+
+.photo-drop{
+  display:flex;align-items:center;justify-content:center;
+  min-height:170px;border:2px dashed var(--line);border-radius:16px;
+  background:var(--card);color:var(--muted);font-weight:600;cursor:pointer;
+  overflow:hidden;position:relative;
+}
+.photo-drop img{width:100%;max-height:300px;object-fit:cover;display:block}
+
+.lightbox{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.94);display:flex;align-items:center;justify-content:center;padding:16px}
+.lightbox img{max-width:100%;max-height:100%;border-radius:12px}
+
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--safe-b) + 96px);z-index:90;
+  background:var(--card-2);border:1px solid var(--line);
+  padding:13px 20px;border-radius:14px;font-size:14px;font-weight:600;
+  box-shadow:0 8px 26px rgba(0,0,0,.5);max-width:90vw;text-align:center;
+}
+
+.spinner{
+  display:inline-block;width:15px;height:15px;vertical-align:-2px;
+  border:2px solid rgba(0,0,0,.25);border-top-color:currentColor;
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media (min-width:600px){
+  .topbar,.tabs{max-width:560px;margin:0 auto;border-radius:0}
+}
