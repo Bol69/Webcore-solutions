@@ -14,8 +14,15 @@ export const CONFIG = {
 
   // ---- Réglages du groupe -------------------------------------------
   GROUP_NAME: "La Team",   // affiché en haut de l'app
-  WEEKLY_GOAL: 4,          // objectif de séances par semaine et par personne
   TIMEZONE: "Europe/Paris",
+
+  // Contrat hebdo par défaut, tant que la personne n'a pas réglé le sien
+  // dans l'onglet « Moi » (chacun choisit ensuite son nombre de séances
+  // et ses kilomètres par semaine).
+  DEFAULT_SESSIONS_TARGET: 3,
+
+  // Sports pour lesquels on demande une distance (elle alimente l'objectif km)
+  DISTANCE_SPORTS: ["Course", "Vélo", "Marche", "Natation"],
 
   // Sports proposés dans le formulaire (libre à toi de modifier)
   SPORTS: [

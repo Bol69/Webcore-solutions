@@ -97,9 +97,14 @@ const state = {
   profiles: new Map(),   // id -> profil
   workouts: [],          // les plus récentes d'abord
   reactions: [],
+  goals: new Map(),      // user_id -> { sessions_target, km_target }
+  longGoals: new Map(),  // user_id -> objectif long terme
+  measurements: [],      // relevés de tout le groupe
+  forfeits: [],          // la liste de gages partagée
+  weekResults: [],       // bilans hebdo figés (les plus récents d'abord)
   period: "week",
   tab: "feed",
-  draft: { sport: CONFIG.SPORTS[0].key, duration: 45, photo: null },
+  draft: { sport: CONFIG.SPORTS[0].key, duration: 45, distance: "", photo: null },
 };
 const signedUrls = new Map(); // photo_path -> { url, exp }
 
@@ -211,18 +216,50 @@ async function ensureProfile() {
 }
 
 async function loadAll() {
-  const [profiles, workouts, reactions] = await Promise.all([
-    sb.from("profiles").select("*"),
-    sb.from("workouts").select("*").order("created_at", { ascending: false }).limit(300),
-    sb.from("reactions").select("*"),
-  ]);
+  const [profiles, workouts, reactions, goals, longGoals, measurements, forfeits, weeks] =
+    await Promise.all([
+      sb.from("profiles").select("*"),
+      sb.from("workouts").select("*").order("created_at", { ascending: false }).limit(300),
+      sb.from("reactions").select("*"),
+      sb.from("goals").select("*"),
+      sb.from("long_goals").select("*"),
+      sb.from("measurements").select("*").order("taken_on", { ascending: true }),
+      sb.from("forfeits").select("*").order("created_at", { ascending: true }),
+      sb.from("week_results").select("*").order("week_start", { ascending: false }).limit(60),
+    ]);
+
   if (profiles.data) {
     state.profiles = new Map(profiles.data.map((p) => [p.id, p]));
     if (state.profiles.has(state.user.id)) state.profile = state.profiles.get(state.user.id);
   }
-  state.workouts = workouts.data || [];
-  state.reactions = reactions.data || [];
+  state.workouts     = workouts.data || [];
+  state.reactions    = reactions.data || [];
+  state.goals        = new Map((goals.data || []).map((g) => [g.user_id, g]));
+  state.longGoals    = new Map((longGoals.data || []).map((g) => [g.user_id, g]));
+  state.measurements = measurements.data || [];
+  state.forfeits     = forfeits.data || [];
+  state.weekResults  = weeks.data || [];
   render();
+}
+
+/** Objectif hebdo de quelqu'un (valeurs par défaut s'il n'a rien réglé) */
+function goalOf(userId) {
+  const g = state.goals.get(userId);
+  return {
+    sessions_target: g ? g.sessions_target : CONFIG.DEFAULT_SESSIONS_TARGET,
+    km_target: g ? Number(g.km_target) : 0,
+  };
+}
+
+/** Ce qu'une personne a fait pendant la semaine commençant le lundi `ws` */
+function weekProgress(userId, ws) {
+  const end = addDays(ws, 6);
+  const rows = state.workouts.filter(
+    (w) => w.user_id === userId && w.done_on >= ws && w.done_on <= end);
+  return {
+    sessions: new Set(rows.map((w) => w.done_on)).size,
+    km: rows.reduce((a, w) => a + Number(w.distance_km || 0), 0),
+  };
 }
 
 /** URLs signées (bucket privé) — mises en cache 50 min */
@@ -255,6 +292,7 @@ function render() {
   renderBanner();
   renderFeed();
   renderRanking();
+  renderGages();
   renderMe();
 }
 
@@ -270,7 +308,12 @@ function renderBanner() {
   if (mine.length) {
     el.classList.add("done");
     const pts = mine.reduce((a, w) => a + w.points, 0);
-    el.textContent = `✅ Séance validée aujourd'hui · +${pts} pts`;
+    const g = goalOf(state.user.id);
+    const prog = weekProgress(state.user.id, weekStart(t));
+    const left = Math.max(0, g.sessions_target - prog.sessions);
+    el.textContent = left
+      ? `✅ Séance validée · +${pts} pts — encore ${left} séance${left > 1 ? "s" : ""} pour tenir ton contrat`
+      : `✅ Séance validée · +${pts} pts — contrat de la semaine tenu 🎉`;
   } else if (names.length) {
     el.textContent = `👀 ${names.join(" et ")} ${names.length > 1 ? "ont" : "a"} déjà posté aujourd'hui. Et toi ?`;
   } else {
@@ -385,12 +428,520 @@ function renderMe() {
   $("#me-streak").textContent = streakOf(new Set(mine.map((w) => w.done_on)));
 
   const ws = weekStart(todayStr());
-  const week = new Set(mine.filter((w) => w.done_on >= ws).map((w) => w.done_on)).size;
-  const goal = CONFIG.WEEKLY_GOAL;
-  $("#goal-text").textContent = `${week} / ${goal}`;
+  const prog = weekProgress(state.user.id, ws);
+  const g = goalOf(state.user.id);
+  const okSessions = prog.sessions >= g.sessions_target;
+  const okKm = prog.km >= g.km_target;
+
+  $("#goal-text").textContent = g.km_target
+    ? `${prog.sessions}/${g.sessions_target} séances · ${fmtKm(prog.km)}/${fmtKm(g.km_target)} km`
+    : `${prog.sessions} / ${g.sessions_target}`;
+
   const fill = $("#goal-fill");
-  fill.style.width = Math.min(100, (week / goal) * 100) + "%";
-  fill.classList.toggle("done", week >= goal);
+  const pct = g.km_target
+    ? (Math.min(1, prog.sessions / Math.max(1, g.sessions_target)) * 50) +
+      (Math.min(1, prog.km / g.km_target) * 50)
+    : Math.min(1, prog.sessions / Math.max(1, g.sessions_target)) * 100;
+  fill.style.width = pct + "%";
+  fill.classList.toggle("done", okSessions && okKm);
+
+  renderGoalForm();
+  renderLongGoal();
+}
+
+/* ================================================================== *
+ *  5 bis. OBJECTIFS PERSONNELS & GAGES
+ * ================================================================== */
+
+const fmtKm = (n) =>
+  Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+const fmtVal = (n) =>
+  Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+const frDate = (s, opts = { day: "numeric", month: "short" }) =>
+  new Intl.DateTimeFormat("fr-FR", { ...opts, timeZone: "UTC" }).format(dateFromStr(s));
+
+/** Jours restants dans la semaine en cours (aujourd'hui compris) */
+function daysLeftInWeek() {
+  const dow = (dateFromStr(todayStr()).getUTCDay() + 6) % 7; // 0 = lundi
+  return 7 - dow;
+}
+
+function renderGages() {
+  renderWeekStatus();
+  renderPendingForfeits();
+  renderForfeitList();
+  renderHistory();
+
+  const mine = state.weekResults.some(
+    (r) => r.user_id === state.user.id && r.status === "pending");
+  $("#gage-dot").classList.toggle("hidden", !mine);
+}
+
+/* ---------- où en est chacun cette semaine ---------- */
+function renderWeekStatus() {
+  const ws = weekStart(todayStr());
+  const left = daysLeftInWeek();
+  $("#week-remaining").textContent =
+    left === 1 ? "dernier jour" : `encore ${left} jours`;
+
+  const rows = [...state.profiles.values()].map((p) => {
+    const g = goalOf(p.id);
+    const prog = weekProgress(p.id, ws);
+    const missing = Math.max(0, g.sessions_target - prog.sessions);
+    const ok = prog.sessions >= g.sessions_target && prog.km >= g.km_target;
+    return { p, g, prog, missing, ok, atRisk: !ok && missing > left };
+  }).sort((a, b) => Number(a.ok) - Number(b.ok));
+
+  $("#week-status").innerHTML = rows.map((r) => {
+    const sPct = Math.min(100, (r.prog.sessions / Math.max(1, r.g.sessions_target)) * 100);
+    const kPct = r.g.km_target ? Math.min(100, (r.prog.km / r.g.km_target) * 100) : 0;
+    const pill = r.ok
+      ? '<span class="pill ok">tenu ✓</span>'
+      : r.atRisk
+        ? '<span class="pill risk">mal parti</span>'
+        : '<span class="pill">en cours</span>';
+
+    return `
+      <div class="member-row">
+        <div class="member-emoji">${esc(r.p.emoji)}</div>
+        <div class="member-main">
+          <div class="member-top">
+            <span class="member-name">${esc(r.p.pseudo)}${
+              r.p.id === state.user.id ? " <span class='muted'>(toi)</span>" : ""}</span>
+            ${pill}
+          </div>
+          <div class="member-top" style="margin-top:3px">
+            <span class="member-num">${r.prog.sessions}/${r.g.sessions_target} séances${
+              r.g.km_target ? ` · ${fmtKm(r.prog.km)}/${fmtKm(r.g.km_target)} km` : ""}</span>
+          </div>
+          <div class="mini-bar"><div class="mini-fill${
+            r.prog.sessions >= r.g.sessions_target ? " ok" : ""}" style="width:${sPct}%"></div></div>
+          ${r.g.km_target ? `<div class="mini-bar"><div class="mini-fill${
+            r.prog.km >= r.g.km_target ? " ok" : ""}" style="width:${kPct}%"></div></div>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+/* ---------- gages en attente ---------- */
+function renderPendingForfeits() {
+  const pending = state.weekResults
+    .filter((r) => r.status === "pending")
+    .sort((a, b) => (a.user_id === state.user.id ? -1 : 1) - (b.user_id === state.user.id ? -1 : 1));
+
+  $("#pending-forfeits").innerHTML = pending.map((r) => {
+    const p = state.profiles.get(r.user_id);
+    const isMine = r.user_id === state.user.id;
+    const why = `${r.sessions_done}/${r.sessions_target} séances${
+      Number(r.km_target) ? ` · ${fmtKm(r.km_done)}/${fmtKm(r.km_target)} km` : ""
+    } · semaine du ${frDate(r.week_start)}`;
+
+    return `
+      <div class="forfeit-card${isMine ? "" : " other"}">
+        <div class="forfeit-head">${
+          isMine ? "🎲 Ton gage" : `🎲 Gage de ${esc(p?.pseudo || "?")}`}</div>
+        <div class="forfeit-text">${esc(r.forfeit_label || "Gage à définir par le groupe")}</div>
+        <div class="forfeit-why">${why}</div>
+        ${isMine
+          ? `<button class="btn primary block" data-forfeit-done="${r.week_start}">C'est fait ✅</button>`
+          : ""}
+      </div>`;
+  }).join("");
+}
+
+$("#pending-forfeits").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("[data-forfeit-done]");
+  if (!btn) return;
+  btn.disabled = true;
+  const { error } = await sb.rpc("set_forfeit_done", {
+    p_week: btn.dataset.forfeitDone, p_done: true,
+  });
+  if (error) { toast("Erreur : " + error.message); btn.disabled = false; return; }
+  toast("Gage validé, l'ardoise est propre 🧽");
+  await loadAll();
+});
+
+/* ---------- la liste de gages ---------- */
+function renderForfeitList() {
+  const active = state.forfeits.filter((f) => f.active);
+  $("#forfeit-count").textContent = `${active.length} gage${active.length > 1 ? "s" : ""}`;
+
+  $("#forfeit-list").innerHTML = active.length
+    ? active.map((f) => `
+        <div class="forfeit-item">
+          <span>${esc(f.label)}</span>
+          <button class="forfeit-del" data-del-forfeit="${f.id}" aria-label="Supprimer">✕</button>
+        </div>`).join("")
+    : `<p class="empty-mini">La liste est vide : ajoutes-en au moins un, sinon rater sa semaine ne coûte rien 😇</p>`;
+}
+
+$("#forfeit-list").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("[data-del-forfeit]");
+  if (!btn) return;
+  const f = state.forfeits.find((x) => x.id === btn.dataset.delForfeit);
+  if (!confirm(`Supprimer « ${f?.label} » de la liste ?`)) return;
+  state.forfeits = state.forfeits.filter((x) => x.id !== btn.dataset.delForfeit);
+  renderForfeitList();
+  await sb.from("forfeits").delete().eq("id", btn.dataset.delForfeit);
+});
+
+$("#forfeit-add").onclick = async () => {
+  const input = $("#forfeit-input");
+  const label = input.value.trim();
+  if (label.length < 2) return;
+  input.value = "";
+  const { error } = await sb.from("forfeits").insert({ label, created_by: state.user.id });
+  if (error) { toast("Erreur : " + error.message); return; }
+  await loadAll();
+  toast("Gage ajouté 🎲");
+};
+$("#forfeit-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("#forfeit-add").click();
+});
+
+/* ---------- historique des semaines ---------- */
+function renderHistory() {
+  const weeks = [...new Set(state.weekResults.map((r) => r.week_start))].slice(0, 6);
+  if (!weeks.length) {
+    $("#week-history").innerHTML =
+      `<p class="empty-mini">Le premier bilan tombera lundi prochain. La semaine où vous démarrez est offerte.</p>`;
+    return;
+  }
+
+  $("#week-history").innerHTML = weeks.map((ws) => {
+    const rows = state.weekResults
+      .filter((r) => r.week_start === ws)
+      .sort((a, b) => Number(b.success) - Number(a.success));
+    return `
+      <div class="hist-week">Semaine du ${frDate(ws, { day: "numeric", month: "long" })}</div>
+      ${rows.map((r) => {
+        const p = state.profiles.get(r.user_id);
+        const detail = r.success
+          ? `${r.sessions_done}/${r.sessions_target} séances — contrat tenu`
+          : r.status === "done"
+            ? `gage fait : ${r.forfeit_label || "—"}`
+            : `gage en attente : ${r.forfeit_label || "—"}`;
+        return `
+          <div class="hist-row">
+            <span class="who">${esc(p?.emoji || "")} ${esc(p?.pseudo || "?")}</span>
+            <span class="what">${esc(detail)}</span>
+            <span>${r.success ? "✅" : r.status === "done" ? "🫡" : "🎲"}</span>
+          </div>`;
+      }).join("")}`;
+  }).join("");
+}
+
+/* ---------- réglage de mon contrat hebdo ---------- */
+let goalChipsBuilt = false;
+let goalDirty = false;   // ne pas écraser ce que la personne est en train de régler
+
+function renderGoalForm() {
+  if (!goalChipsBuilt) {
+    $("#sessions-chips").innerHTML = [1, 2, 3, 4, 5, 6, 7].map(
+      (n) => `<button type="button" class="chip" data-sessions="${n}">${n}</button>`).join("");
+    goalChipsBuilt = true;
+  }
+  if (goalDirty) return;
+
+  const g = goalOf(state.user.id);
+  $$("#sessions-chips .chip").forEach((c) =>
+    c.classList.toggle("sel", Number(c.dataset.sessions) === g.sessions_target));
+  $("#km-target-input").value = g.km_target || 0;
+}
+
+$("#sessions-chips").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-sessions]");
+  if (!c) return;
+  goalDirty = true;
+  $$("#sessions-chips .chip").forEach((x) => x.classList.toggle("sel", x === c));
+});
+$("#km-target-input").addEventListener("input", () => { goalDirty = true; });
+
+$("#save-goal").onclick = async () => {
+  const sel = $("#sessions-chips .chip.sel");
+  const sessions = sel ? Number(sel.dataset.sessions) : CONFIG.DEFAULT_SESSIONS_TARGET;
+  const km = Math.max(0, Math.min(500, Number($("#km-target-input").value) || 0));
+  const btn = $("#save-goal");
+  btn.disabled = true;
+
+  const { error } = await sb.from("goals").upsert({
+    user_id: state.user.id, sessions_target: sessions, km_target: km, updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+
+  btn.disabled = false;
+  if (error) { toast("Erreur : " + error.message); return; }
+  goalDirty = false;
+  toast(km ? `Contrat : ${sessions} séances + ${fmtKm(km)} km / semaine` : `Contrat : ${sessions} séances / semaine`);
+  await loadAll();
+};
+
+/* ---------- objectif long terme ---------- */
+function longGoalProgress(goal, current) {
+  const span = Number(goal.target_value) - Number(goal.start_value);
+  if (Math.abs(span) < 1e-9) return 100;
+  const done = current - Number(goal.start_value);
+  return Math.max(0, Math.min(100, (done / span) * 100));
+}
+
+function myMeasurements() {
+  return state.measurements
+    .filter((m) => m.user_id === state.user.id)
+    .map((m) => ({ d: m.taken_on, v: Number(m.value) }))
+    .sort((a, b) => (a.d < b.d ? -1 : 1));
+}
+
+function renderLongGoal() {
+  const view = $("#long-goal-view");
+  const goal = state.longGoals.get(state.user.id);
+  const editing = !$("#long-goal-form").classList.contains("hidden");
+  $("#edit-long-goal").textContent = goal ? "Modifier" : "Définir";
+  if (editing) { view.innerHTML = ""; return; }
+
+  if (!goal) {
+    view.innerHTML = `<p class="empty-mini">Pas encore d'objectif long terme. Un poids à atteindre, un temps au 10&nbsp;km, un nombre de tractions… sur quelques mois ou un an.</p>`;
+    return;
+  }
+
+  const pts = myMeasurements();
+  const current = pts.length ? pts[pts.length - 1].v : Number(goal.start_value);
+  const pct = longGoalProgress(goal, current);
+  const delta = current - Number(goal.start_value);
+  const remaining = Number(goal.target_value) - current;
+  const goingDown = Number(goal.target_value) < Number(goal.start_value);
+  const good = goingDown ? delta < 0 : delta > 0;
+
+  let deadlineTxt = "";
+  if (goal.deadline) {
+    const days = Math.round(
+      (dateFromStr(goal.deadline) - dateFromStr(todayStr())) / 86400000);
+    deadlineTxt = days >= 0
+      ? ` · échéance dans ${days > 60 ? Math.round(days / 30) + " mois" : days + " jours"}`
+      : " · échéance dépassée";
+  }
+
+  view.innerHTML = `
+    <div class="lg-hero">
+      <span class="lg-value">${fmtVal(current)}</span>
+      <span class="lg-unit">${esc(goal.unit)}</span>
+    </div>
+    <div class="lg-sub">
+      ${esc(goal.title)} — cible ${fmtVal(goal.target_value)} ${esc(goal.unit)}${deadlineTxt}
+    </div>
+    <div class="goal-head">
+      <span>${delta === 0 ? "Aucun changement pour l'instant"
+        : `<span class="lg-delta${good ? "" : " up"}">${delta > 0 ? "+" : ""}${fmtVal(delta)} ${esc(goal.unit)}</span> depuis le départ`}</span>
+      <span>${Math.round(pct)} %</span>
+    </div>
+    <div class="goal-bar"><div class="goal-fill${pct >= 100 ? " done" : ""}" style="width:${pct}%"></div></div>
+    <div class="lg-sub" style="margin-top:8px">
+      ${pct >= 100 ? "🎉 Objectif atteint." :
+        `Il reste ${fmtVal(Math.abs(remaining))} ${esc(goal.unit)}.`}
+    </div>
+
+    <div class="chart-wrap" id="lg-chart"></div>
+
+    <div class="measure-row">
+      <input id="measure-input" type="number" step="0.1" inputmode="decimal"
+             placeholder="Mesure du jour (${esc(goal.unit)})">
+      <button id="measure-add" class="btn" type="button">Ajouter</button>
+    </div>
+
+    ${pts.length ? `
+      <details class="data-table">
+        <summary>Voir les ${pts.length} mesure${pts.length > 1 ? "s" : ""}</summary>
+        <table>
+          <thead><tr><th>Date</th><th>${esc(goal.unit)}</th></tr></thead>
+          <tbody>${[...pts].reverse().map((m) => `
+            <tr><td>${frDate(m.d, { day: "numeric", month: "short", year: "numeric" })}</td>
+                <td>${fmtVal(m.v)}</td></tr>`).join("")}</tbody>
+        </table>
+      </details>` : ""}
+  `;
+
+  renderSparkline($("#lg-chart"), pts, {
+    target: Number(goal.target_value),
+    unit: goal.unit,
+  });
+
+  $("#measure-add").onclick = async () => {
+    const input = $("#measure-input");
+    const value = Number(input.value);
+    if (!Number.isFinite(value) || value <= 0) { toast("Entre une valeur valide."); return; }
+    const { error } = await sb.from("measurements").upsert({
+      user_id: state.user.id, taken_on: todayStr(), value,
+    }, { onConflict: "user_id,taken_on" });
+    if (error) { toast("Erreur : " + error.message); return; }
+    input.value = "";
+    toast("Mesure enregistrée 📈");
+    await loadAll();
+  };
+}
+
+/* ---------- formulaire de l'objectif long terme ---------- */
+let lgKind = "poids";
+
+function openLongGoalForm() {
+  const g = state.longGoals.get(state.user.id);
+  lgKind = g?.kind || "poids";
+  $$("#long-goal-form [data-kind]").forEach((c) =>
+    c.classList.toggle("sel", c.dataset.kind === lgKind));
+  $("#lg-title").value    = g?.title || (lgKind === "poids" ? "Objectif poids" : "");
+  $("#lg-start").value    = g?.start_value ?? "";
+  $("#lg-target").value   = g?.target_value ?? "";
+  $("#lg-unit").value     = g?.unit || "kg";
+  $("#lg-deadline").value = g?.deadline || "";
+  $("#lg-error").classList.add("hidden");
+  $("#long-goal-form").classList.remove("hidden");
+  $("#long-goal-view").innerHTML = "";
+}
+
+function closeLongGoalForm() {
+  $("#long-goal-form").classList.add("hidden");
+  renderLongGoal();
+}
+
+$("#edit-long-goal").onclick = () =>
+  $("#long-goal-form").classList.contains("hidden") ? openLongGoalForm() : closeLongGoalForm();
+$("#lg-cancel").onclick = closeLongGoalForm;
+
+$("#long-goal-form").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-kind]");
+  if (!c) return;
+  lgKind = c.dataset.kind;
+  $$("#long-goal-form [data-kind]").forEach((x) => x.classList.toggle("sel", x === c));
+  if (lgKind === "poids") {
+    $("#lg-unit").value = "kg";
+    if (!$("#lg-title").value.trim()) $("#lg-title").value = "Objectif poids";
+  }
+});
+
+$("#long-goal-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const err = $("#lg-error");
+  const title = $("#lg-title").value.trim();
+  const start = Number($("#lg-start").value);
+  const target = Number($("#lg-target").value);
+  const unit = $("#lg-unit").value.trim() || "kg";
+  const deadline = $("#lg-deadline").value || null;
+
+  if (!title) { err.textContent = "Donne un intitulé à ton objectif."; err.classList.remove("hidden"); return; }
+  if (!Number.isFinite(start) || !Number.isFinite(target)) {
+    err.textContent = "Renseigne la valeur de départ et la cible.";
+    err.classList.remove("hidden"); return;
+  }
+  if (start === target) {
+    err.textContent = "Le départ et la cible doivent être différents.";
+    err.classList.remove("hidden"); return;
+  }
+
+  const btn = $("#lg-save");
+  btn.disabled = true;
+  const { error } = await sb.from("long_goals").upsert({
+    user_id: state.user.id, kind: lgKind, title,
+    start_value: start, target_value: target, unit, deadline,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+  btn.disabled = false;
+
+  if (error) { err.textContent = error.message; err.classList.remove("hidden"); return; }
+  $("#long-goal-form").classList.add("hidden");
+  toast("Objectif enregistré 🎯");
+  await loadAll();
+});
+
+/* ---------- courbe de suivi (une seule série, donc pas de légende) ---------- */
+function renderSparkline(wrap, points, opts = {}) {
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  if (points.length < 2) {
+    wrap.innerHTML =
+      `<p class="empty-mini">Ajoute au moins deux mesures pour voir ta courbe.</p>`;
+    return;
+  }
+
+  const W = Math.max(240, Math.round(wrap.clientWidth || 320));
+  const H = 118;
+  const PAD = { t: 14, r: 12, b: 22, l: 12 };
+  const LINE = "#4d8dff";           // validé sur fond sombre (contraste ≥ 3:1)
+
+  const vals = points.map((p) => p.v);
+  const all = opts.target != null ? [...vals, opts.target] : vals;
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (hi - lo < 1e-6) { hi += 1; lo -= 1; }
+  const pad = (hi - lo) * 0.1;
+  lo -= pad; hi += pad;
+
+  const X = (i) => PAD.l + (i / (points.length - 1)) * (W - PAD.l - PAD.r);
+  const Y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+
+  const line = points.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ");
+  const area = `${line} L${X(points.length - 1).toFixed(1)},${H - PAD.b} L${X(0).toFixed(1)},${H - PAD.b} Z`;
+  const last = points[points.length - 1];
+
+  const targetLine = opts.target != null && opts.target >= lo && opts.target <= hi
+    ? `<line x1="${PAD.l}" y1="${Y(opts.target).toFixed(1)}" x2="${W - PAD.r}" y2="${Y(opts.target).toFixed(1)}"
+             stroke="#8b94a7" stroke-width="1" stroke-dasharray="3 4" opacity=".7"></line>
+       <text x="${W - PAD.r}" y="${(Y(opts.target) - 5).toFixed(1)}" text-anchor="end"
+             fill="#8b94a7" font-size="10" font-weight="600">cible ${fmtVal(opts.target)}</text>`
+    : "";
+
+  wrap.innerHTML = `
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
+         aria-label="Évolution de tes mesures, de ${fmtVal(points[0].v)} à ${fmtVal(last.v)} ${esc(opts.unit || "")}">
+      <defs>
+        <linearGradient id="lgfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${LINE}" stop-opacity=".26"></stop>
+          <stop offset="100%" stop-color="${LINE}" stop-opacity="0"></stop>
+        </linearGradient>
+      </defs>
+      ${targetLine}
+      <path d="${area}" fill="url(#lgfill)"></path>
+      <path d="${line}" fill="none" stroke="${LINE}" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"></path>
+      <line id="lg-cross" x1="0" y1="${PAD.t}" x2="0" y2="${H - PAD.b}"
+            stroke="#8b94a7" stroke-width="1" opacity="0"></line>
+      <circle id="lg-hover" r="4.5" fill="${LINE}" stroke="#171c26" stroke-width="2" opacity="0"></circle>
+      <circle cx="${X(points.length - 1).toFixed(1)}" cy="${Y(last.v).toFixed(1)}" r="4.5"
+              fill="${LINE}" stroke="#171c26" stroke-width="2"></circle>
+      <text x="${PAD.l}" y="${H - 6}" fill="#8b94a7" font-size="10">${frDate(points[0].d)}</text>
+      <text x="${W - PAD.r}" y="${H - 6}" text-anchor="end" fill="#8b94a7" font-size="10">${frDate(last.d)}</text>
+      <rect id="lg-hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"></rect>
+    </svg>
+    <div class="chart-tip" id="lg-tip"></div>`;
+
+  // survol / toucher : point le plus proche
+  const svg = wrap.querySelector("svg");
+  const tip = wrap.querySelector("#lg-tip");
+  const cross = wrap.querySelector("#lg-cross");
+  const dot = wrap.querySelector("#lg-hover");
+  const scale = () => (wrap.clientWidth || W) / W;
+
+  const move = (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) / (rect.width / W);
+    const ratio = (x - PAD.l) / (W - PAD.l - PAD.r);
+    const i = Math.max(0, Math.min(points.length - 1, Math.round(ratio * (points.length - 1))));
+    const p = points[i];
+    cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
+    cross.setAttribute("opacity", ".45");
+    dot.setAttribute("cx", X(i)); dot.setAttribute("cy", Y(p.v));
+    dot.setAttribute("opacity", "1");
+    tip.innerHTML = `<span class="tip-date">${frDate(p.d, {
+      day: "numeric", month: "short", year: "numeric" })}</span>${fmtVal(p.v)} ${esc(opts.unit || "")}`;
+    tip.style.left = X(i) * scale() + "px";
+    tip.style.top = (Y(p.v) * scale() - 8) + "px";
+    tip.classList.add("on");
+  };
+  const leave = () => {
+    tip.classList.remove("on");
+    cross.setAttribute("opacity", "0");
+    dot.setAttribute("opacity", "0");
+  };
+
+  svg.addEventListener("pointermove", move);
+  svg.addEventListener("pointerdown", move);
+  svg.addEventListener("pointerleave", leave);
+  svg.addEventListener("pointercancel", leave);
 }
 
 /* ------------------------------------------------------------------ *
@@ -448,6 +999,8 @@ $$(".tab").forEach((t) => {
     $$(".tabpane").forEach((p) => p.classList.add("hidden"));
     $("#tab-" + state.tab).classList.remove("hidden");
     $("#fab").classList.toggle("hidden", state.tab === "me");
+    // la courbe a besoin de la largeur réelle : on la redessine une fois visible
+    if (state.tab === "me") renderLongGoal();
     window.scrollTo({ top: 0 });
   };
 });
@@ -476,11 +1029,19 @@ function buildModal() {
   ).join("");
 }
 
+/** Le champ distance n'apparaît que pour les sports où ça a du sens. */
+function syncDistanceField() {
+  const on = (CONFIG.DISTANCE_SPORTS || []).includes(state.draft.sport);
+  $("#distance-block").classList.toggle("hidden", !on);
+  if (!on) { state.draft.distance = ""; $("#distance-input").value = ""; }
+}
+
 $("#sport-chips").addEventListener("click", (e) => {
   const c = e.target.closest("[data-sport]");
   if (!c) return;
   state.draft.sport = c.dataset.sport;
   $$("#sport-chips .chip").forEach((x) => x.classList.toggle("sel", x === c));
+  syncDistanceField();
 });
 
 $("#duration-chips").addEventListener("click", (e) => {
@@ -499,6 +1060,7 @@ $("#duration-input").addEventListener("input", (e) => {
 
 $("#fab").onclick = () => {
   buildModal();
+  syncDistanceField();
   $("#modal").classList.remove("hidden");
 };
 $("#modal-close").onclick = closeModal;
@@ -542,6 +1104,11 @@ $("#submit-workout").onclick = async () => {
   const err = $("#modal-error");
   const btn = $("#submit-workout");
   const duration = Number($("#duration-input").value);
+  const wantsDistance = (CONFIG.DISTANCE_SPORTS || []).includes(state.draft.sport);
+  const rawKm = Number(String($("#distance-input").value).replace(",", "."));
+  const distance = wantsDistance && Number.isFinite(rawKm) && rawKm > 0
+    ? Math.min(500, Math.round(rawKm * 100) / 100)
+    : null;
 
   if (!state.draft.photo) {
     err.textContent = "Il faut une photo : c'est la preuve 😄";
@@ -571,6 +1138,7 @@ $("#submit-workout").onclick = async () => {
       duration_min: duration,
       note: $("#note-input").value.trim() || null,
       photo_path: path,
+      distance_km: distance,
     }).select().single();
     if (ins.error) throw ins.error;
 
@@ -592,7 +1160,8 @@ $("#submit-workout").onclick = async () => {
 };
 
 function resetDraft() {
-  state.draft = { sport: CONFIG.SPORTS[0].key, duration: 45, photo: null };
+  state.draft = { sport: CONFIG.SPORTS[0].key, duration: 45, distance: "", photo: null };
+  $("#distance-input").value = "";
   $("#photo-input").value = "";
   $("#photo-preview").classList.add("hidden");
   $("#photo-preview").removeAttribute("src");
@@ -618,7 +1187,40 @@ function subscribeRealtime() {
       state.reactions = data || [];
       renderFeed();
     })
+    .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, () => loadAll())
+    .on("postgres_changes", { event: "*", schema: "public", table: "forfeits" }, () => loadAll())
+    .on("postgres_changes", { event: "*", schema: "public", table: "week_results" }, async (payload) => {
+      await loadAll();
+      if (payload.eventType === "INSERT" &&
+          payload.new.user_id === state.user.id && !payload.new.success) {
+        toast("Semaine ratée… un gage t'attend 🎲");
+      }
+    })
     .subscribe();
+}
+
+/* ------------------------------------------------------------------ *
+ *  9 bis. Clôture des semaines terminées
+ *
+ *  Le serveur calcule les bilans et tire les gages. C'est idempotent :
+ *  peu importe qui ouvre l'app en premier, le résultat est le même.
+ * ------------------------------------------------------------------ */
+async function settleWeeks() {
+  const { data, error } = await sb.rpc("settle_pending_weeks");
+  if (error) {
+    // schéma pas encore à jour : on n'embête pas l'utilisateur avec ça
+    console.warn("clôture impossible :", error.message);
+    return 0;
+  }
+  const created = Number(data?.created || 0);
+  if (created) {
+    // prévient les autres (l'edge function ignore l'appel si les push
+    // ne sont pas configurés)
+    sb.functions.invoke("notify", {
+      body: { type: "week", results: data.results },
+    }).catch(() => {});
+  }
+  return created;
 }
 
 /* ------------------------------------------------------------------ *
@@ -718,6 +1320,7 @@ async function start(session) {
     render();
   });
 
+  await settleWeeks();   // clôture les semaines terminées avant d'afficher
   await loadAll();
   subscribeRealtime();
   refreshPushUI();
@@ -736,6 +1339,8 @@ sb.auth.onAuthStateChange((event, s) => {
 });
 
 // Rafraîchit quand on revient dans l'app
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && state.user) loadAll();
+document.addEventListener("visibilitychange", async () => {
+  if (document.hidden || !state.user) return;
+  await settleWeeks();     // au cas où on passe un lundi avec l'app ouverte
+  await loadAll();
 });

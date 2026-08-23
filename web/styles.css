@@ -293,3 +293,128 @@ code{background:var(--bg-2);padding:2px 6px;border-radius:6px;font-size:12.5px;c
 @media (min-width:600px){
   .topbar,.tabs{max-width:560px;margin:0 auto;border-radius:0}
 }
+
+/* =====================================================================
+   Objectifs personnels & gages
+   ===================================================================== */
+
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.row-between h4{margin:0}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.btn-row{display:flex;gap:10px;margin-top:6px}
+.btn-row .btn{flex:1}
+
+/* pastille « un gage t'attend » sur l'onglet */
+.dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--accent);margin-left:5px;vertical-align:2px;
+}
+
+/* ---------- état de la semaine ---------- */
+.week-status{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+.member-row{display:flex;align-items:center;gap:12px}
+.member-emoji{
+  width:38px;height:38px;border-radius:50%;font-size:19px;flex:none;
+  display:flex;align-items:center;justify-content:center;background:var(--card-2);
+}
+.member-main{flex:1;min-width:0}
+.member-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.member-name{font-weight:700;font-size:14.5px}
+.member-num{font-size:12.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+.mini-bar{height:7px;background:var(--bg-2);border-radius:999px;overflow:hidden;margin-top:6px}
+.mini-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .4s ease}
+.mini-fill.ok{background:linear-gradient(90deg,var(--green),#7ef0b0)}
+.mini-bar + .mini-bar{margin-top:4px}
+
+.pill{
+  font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;
+  background:var(--card-2);color:var(--muted);white-space:nowrap;
+}
+.pill.ok{background:rgba(47,208,122,.16);color:var(--green)}
+.pill.risk{background:rgba(255,95,46,.16);color:var(--accent)}
+
+/* ---------- gage en attente ---------- */
+.forfeit-card{
+  border-radius:var(--radius);padding:18px;margin-bottom:14px;
+  background:linear-gradient(135deg,rgba(255,95,46,.16),rgba(255,176,32,.07));
+  border:1px solid rgba(255,95,46,.4);
+}
+.forfeit-card.other{
+  background:var(--card);border-color:var(--line);
+}
+.forfeit-head{font-size:12.5px;font-weight:700;color:var(--accent-2);text-transform:uppercase;letter-spacing:.6px}
+.forfeit-card.other .forfeit-head{color:var(--muted)}
+.forfeit-text{font-size:17px;font-weight:700;line-height:1.35;margin:9px 0 6px}
+.forfeit-why{font-size:13px;color:var(--muted)}
+.forfeit-card .btn{margin-top:14px}
+
+/* ---------- liste des gages ---------- */
+.forfeit-list{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.forfeit-item{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg-2);border-radius:12px;padding:11px 13px;font-size:14px;
+}
+.forfeit-item span{flex:1;line-height:1.35}
+.forfeit-del{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;flex:none}
+.add-row{display:flex;gap:8px}
+.add-row input{
+  flex:1;min-width:0;padding:13px;border-radius:12px;
+  background:var(--bg-2);border:1px solid var(--line);color:var(--txt);
+}
+.add-row .btn{flex:none;padding:13px 16px}
+
+/* ---------- historique ---------- */
+.history{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.hist-week{font-size:12px;color:var(--muted);font-weight:700;margin-top:6px}
+.hist-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg-2);border-radius:12px;padding:10px 13px;font-size:13.5px;
+}
+.hist-row .who{font-weight:700;flex:none}
+.hist-row .what{color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- objectif long terme ---------- */
+.lg-hero{display:flex;align-items:baseline;gap:8px;margin:4px 0 2px}
+.lg-value{font-size:32px;font-weight:800;letter-spacing:-1px}
+.lg-unit{font-size:15px;color:var(--muted);font-weight:700}
+.lg-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+.lg-delta{color:var(--green);font-weight:700}
+.lg-delta.up{color:var(--accent)}
+
+.chart-wrap{position:relative;margin:6px 0 4px;touch-action:pan-y}
+.chart-wrap svg{display:block;width:100%}
+.chart-tip{
+  position:absolute;pointer-events:none;transform:translate(-50%,-100%);
+  background:var(--card-2);border:1px solid var(--line);border-radius:10px;
+  padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);opacity:0;transition:opacity .12s ease;
+}
+.chart-tip.on{opacity:1}
+.chart-tip .tip-date{color:var(--muted);font-weight:600;display:block;font-size:11px}
+
+.measure-row{display:flex;gap:8px;margin-top:14px}
+.measure-row input{
+  flex:1;min-width:0;padding:13px;border-radius:12px;
+  background:var(--bg-2);border:1px solid var(--line);color:var(--txt);
+}
+.measure-row .btn{flex:none}
+
+details.data-table{margin-top:12px}
+details.data-table summary{
+  cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;
+  list-style:none;padding:6px 0;
+}
+details.data-table summary::-webkit-details-marker{display:none}
+details.data-table summary::before{content:"▸ ";}
+details.data-table[open] summary::before{content:"▾ ";}
+details.data-table table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+details.data-table th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:5px 0}
+details.data-table td{padding:5px 0;border-top:1px solid var(--line)}
+details.data-table td:last-child,
+details.data-table th:last-child{text-align:right}
+
+.empty-mini{color:var(--muted);font-size:13.5px;padding:6px 0;line-height:1.5}
+
+@media (max-width:360px){
+  .tab{font-size:13px}
+}

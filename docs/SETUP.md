@@ -29,10 +29,14 @@ Il te faut juste un compte GitHub (déjà fait) et un compte Supabase gratuit.
 
 1. Dans le menu de gauche : **SQL Editor** → **New query**.
 2. Ouvre le fichier `supabase/schema.sql` de ce dépôt, **copie tout**, colle dans l'éditeur.
-3. Clique **Run**. Tu dois voir « Success. No rows returned ».
+3. Clique **Run**.
 
-Ça crée : les profils, les séances, les réactions, le calcul des points,
-les règles de sécurité et le bucket privé pour les photos.
+Ça crée : les profils, les séances, les réactions, le calcul des points, les
+contrats hebdomadaires, les objectifs long terme, la liste de gages, la clôture
+automatique des semaines, les règles de sécurité et le bucket privé pour les photos.
+
+> Le fichier est **ré-exécutable** : si tu l'avais déjà lancé dans une version
+> précédente, relance-le simplement en entier, rien ne sera cassé ni effacé.
 
 ## Étape 3 — Récupérer les clés et remplir `web/config.js`
 
@@ -44,9 +48,12 @@ les règles de sécurité et le bucket privé pour les photos.
 ```js
 SUPABASE_URL: "https://xxxxxxxx.supabase.co",
 SUPABASE_ANON_KEY: "eyJhbGciOi...",
-GROUP_NAME: "Les Bourrins",   // le nom de votre groupe
-WEEKLY_GOAL: 4,               // objectif de séances par semaine
+GROUP_NAME: "Les Bourrins",     // le nom de votre groupe
+DEFAULT_SESSIONS_TARGET: 3,     // contrat par défaut, chacun règle le sien ensuite
 ```
+
+> Le nombre de séances et de kilomètres par semaine ne se règle **pas** ici :
+> chacun choisit le sien dans l'app, onglet **Moi → Mon contrat de la semaine**.
 
 > La clé `anon` est **faite pour être publique** : elle ne donne accès à rien
 > toute seule. Ce sont les règles RLS (étape 2) qui protègent les données,
@@ -116,6 +123,24 @@ Le workflow `.github/workflows/deploy-pages.yml` est déjà prêt.
 - Cloudflare Pages : **Create project → Connect to Git**, build command : *(vide)*,
   output directory : `web`.
 - Netlify : glisse-dépose simplement le dossier `web/` sur <https://app.netlify.com/drop>.
+
+## Étape 6 bis — Régler vos contrats (à faire une fois, chacun)
+
+1. Onglet **Moi → Mon contrat de la semaine** : choisis ton nombre de séances
+   par semaine, et éventuellement des kilomètres. Puis **Enregistrer**.
+2. Onglet **Moi → Mon objectif long terme** : facultatif — un poids à atteindre,
+   un temps, un nombre de tractions… avec une échéance dans quelques mois.
+3. Onglet **Gages** : écrivez ensemble votre liste de gages. Sept sont déjà là
+   pour démarrer, supprimez ceux qui ne vous parlent pas et ajoutez les vôtres.
+
+Le premier bilan tombe le lundi suivant : la semaine où vous démarrez est offerte.
+
+### (Facultatif) Que le bilan tombe tout seul le lundi matin
+
+L'app clôture les semaines dès que l'un de vous l'ouvre, donc ce n'est pas
+nécessaire. Si tu veux que ça parte même sans ouvrir l'app : dans Supabase,
+**Database → Extensions**, active **pg_cron**, puis décommente le bloc
+`cron.schedule` tout en bas de `supabase/schema.sql` et exécute-le.
 
 ### Étape 7 — L'installer sur le téléphone
 

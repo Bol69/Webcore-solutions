@@ -186,8 +186,23 @@ begin
   end if;
 end $$;
 
-alter publication supabase_realtime add table public.workouts;
-alter publication supabase_realtime add table public.reactions;
+-- Ajoute une table à la publication seulement si elle n'y est pas déjà
+-- (sinon relancer ce fichier échouerait).
+create or replace function public.add_to_realtime(p_table text)
+returns void language plpgsql as $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime'
+       and schemaname = 'public'
+       and tablename = p_table
+  ) then
+    execute format('alter publication supabase_realtime add table public.%I', p_table);
+  end if;
+end $$;
+
+select public.add_to_realtime('workouts');
+select public.add_to_realtime('reactions');
 
 -- ---------------------------------------------------------------------
 -- 8. STOCKAGE DES PHOTOS (bucket privé « proofs »)
@@ -215,3 +230,286 @@ create policy "proofs: upload perso" on storage.objects
 create policy "proofs: suppr perso" on storage.objects
   for delete to authenticated
   using (bucket_id = 'proofs' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =====================================================================
+--  PARTIE 2 — OBJECTIFS PERSONNELS & SYSTÈME DE GAGES
+--  (ré-exécutable : tu peux relancer tout le fichier sans rien casser)
+-- =====================================================================
+
+-- Distance parcourue, pour les objectifs en km (course, vélo, marche…)
+alter table public.workouts
+  add column if not exists distance_km numeric(6,2)
+  check (distance_km is null or (distance_km > 0 and distance_km <= 500));
+
+-- Lundi de la semaine contenant `d`
+create or replace function public.week_start_of(d date) returns date
+language sql immutable as $$ select d - (extract(isodow from d)::int - 1) $$;
+
+create or replace function public.current_week_start() returns date
+language sql stable as $$ select public.week_start_of(public.today_local()) $$;
+
+-- ---------------------------------------------------------------------
+-- 9. OBJECTIF HEBDOMADAIRE DE CHACUN
+-- ---------------------------------------------------------------------
+create table if not exists public.goals (
+  user_id         uuid primary key references public.profiles(id) on delete cascade,
+  sessions_target int not null default 3 check (sessions_target between 0 and 21),
+  km_target       numeric(6,2) not null default 0 check (km_target between 0 and 500),
+  updated_at      timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------
+-- 10. OBJECTIF LONG TERME (poids, ou objectif libre sur plusieurs mois)
+-- ---------------------------------------------------------------------
+create table if not exists public.long_goals (
+  user_id      uuid primary key references public.profiles(id) on delete cascade,
+  kind         text not null default 'poids' check (kind in ('poids', 'libre')),
+  title        text not null check (char_length(title) between 1 and 60),
+  start_value  numeric(8,2) not null,
+  target_value numeric(8,2) not null,
+  unit         text not null default 'kg' check (char_length(unit) <= 10),
+  deadline     date,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+-- Relevés (pesées, ou toute mesure liée à l'objectif long terme)
+create table if not exists public.measurements (
+  user_id  uuid not null references public.profiles(id) on delete cascade,
+  taken_on date not null default public.today_local(),
+  value    numeric(8,2) not null,
+  primary key (user_id, taken_on)
+);
+
+-- ---------------------------------------------------------------------
+-- 11. LES GAGES
+-- ---------------------------------------------------------------------
+create table if not exists public.forfeits (
+  id         uuid primary key default gen_random_uuid(),
+  label      text not null check (char_length(label) between 2 and 120),
+  created_by uuid references public.profiles(id) on delete set null,
+  active     boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- Une liste de départ, uniquement si le groupe n'en a pas encore
+insert into public.forfeits (label)
+select v.label from (values
+  ('Payer le prochain resto du groupe'),
+  ('Photo de profil imposée par les autres pendant 1 semaine'),
+  ('Story publique : « j''ai lâché ma semaine de sport »'),
+  ('50 pompes filmées, à envoyer dans le feed'),
+  ('Séance suivante choisie par les autres (sport + durée)'),
+  ('Payer les cafés pendant une semaine'),
+  ('Double séance obligatoire la semaine suivante')
+) as v(label)
+where not exists (select 1 from public.forfeits);
+
+-- Bilan hebdomadaire figé : ce qui a été fait, et le gage tiré si c'est raté
+create table if not exists public.week_results (
+  user_id         uuid not null references public.profiles(id) on delete cascade,
+  week_start      date not null,
+  sessions_done   int  not null,
+  sessions_target int  not null,
+  km_done         numeric(6,2) not null,
+  km_target       numeric(6,2) not null,
+  success         boolean not null,
+  forfeit_id      uuid references public.forfeits(id) on delete set null,
+  forfeit_label   text,       -- figé : supprimer un gage n'efface pas l'historique
+  status          text not null default 'pending' check (status in ('none', 'pending', 'done')),
+  done_at         timestamptz,
+  created_at      timestamptz not null default now(),
+  primary key (user_id, week_start)
+);
+
+create index if not exists week_results_week_idx on public.week_results (week_start desc);
+
+-- ---------------------------------------------------------------------
+-- 12. CLÔTURE DES SEMAINES (calcul du bilan + tirage du gage)
+--
+--     Fait côté serveur, donc identique pour tout le monde et impossible
+--     à influencer depuis un téléphone. Idempotent : une semaine déjà
+--     clôturée n'est jamais recalculée.
+-- ---------------------------------------------------------------------
+create or replace function public._settle_pending_weeks()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  cur_week   date := public.current_week_start();
+  w          date;
+  oldest     date;
+  p          record;
+  v_sessions int;
+  v_km       numeric(6,2);
+  v_st       int;
+  v_kt       numeric(6,2);
+  v_ok       boolean;
+  v_fid      uuid;
+  v_flabel   text;
+  n          int;
+  created    int := 0;
+  results    jsonb := '[]'::jsonb;
+begin
+  select public.week_start_of(min((created_at at time zone public.app_timezone())::date))
+    into oldest from public.profiles;
+  if oldest is null then
+    return jsonb_build_object('created', 0, 'results', results);
+  end if;
+
+  -- on ne remonte jamais au-delà de 26 semaines
+  oldest := greatest(oldest, cur_week - 182);
+  w := oldest;
+
+  while w < cur_week loop
+    for p in select pr.id, pr.pseudo, pr.created_at from public.profiles pr loop
+      -- On ne juge personne avant son arrivée, et la semaine d'inscription
+      -- est offerte (elle est presque toujours incomplète).
+      continue when w < public.week_start_of(
+        (p.created_at at time zone public.app_timezone())::date) + 7;
+      continue when exists (
+        select 1 from public.week_results r
+         where r.user_id = p.id and r.week_start = w);
+
+      v_st := null; v_kt := null;
+      select g.sessions_target, g.km_target into v_st, v_kt
+        from public.goals g where g.user_id = p.id;
+      v_st := coalesce(v_st, 3);
+      v_kt := coalesce(v_kt, 0);
+
+      select count(distinct wo.done_on), coalesce(sum(wo.distance_km), 0)
+        into v_sessions, v_km
+        from public.workouts wo
+       where wo.user_id = p.id
+         and wo.done_on between w and w + 6;
+
+      v_ok := (v_sessions >= v_st) and (v_km >= v_kt);
+
+      v_fid := null; v_flabel := null;
+      if not v_ok then
+        select f.id, f.label into v_fid, v_flabel
+          from public.forfeits f where f.active
+         order by random() limit 1;
+      end if;
+
+      insert into public.week_results (
+        user_id, week_start, sessions_done, sessions_target,
+        km_done, km_target, success, forfeit_id, forfeit_label, status)
+      values (
+        p.id, w, v_sessions, v_st, v_km, v_kt, v_ok, v_fid, v_flabel,
+        case when v_ok then 'none' else 'pending' end)
+      on conflict do nothing;
+
+      get diagnostics n = row_count;
+      if n > 0 then
+        created := created + 1;
+        results := results || jsonb_build_object(
+          'user_id', p.id, 'pseudo', p.pseudo, 'week_start', w,
+          'success', v_ok, 'forfeit_label', v_flabel,
+          'sessions_done', v_sessions, 'sessions_target', v_st);
+      end if;
+    end loop;
+    w := w + 7;
+  end loop;
+
+  return jsonb_build_object('created', created, 'results', results);
+end $$;
+
+-- Version appelée par l'app (exige d'être connecté)
+create or replace function public.settle_pending_weeks()
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'authentification requise';
+  end if;
+  return public._settle_pending_weeks();
+end $$;
+
+grant execute on function public.settle_pending_weeks() to authenticated;
+
+-- Marquer son propre gage comme fait (ou revenir en arrière)
+create or replace function public.set_forfeit_done(p_week date, p_done boolean default true)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'authentification requise';
+  end if;
+  update public.week_results
+     set status  = case when p_done then 'done' else 'pending' end,
+         done_at = case when p_done then now() else null end
+   where user_id = auth.uid()
+     and week_start = p_week
+     and status <> 'none';
+end $$;
+
+grant execute on function public.set_forfeit_done(date, boolean) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- 13. SÉCURITÉ (RLS) POUR LA PARTIE 2
+-- ---------------------------------------------------------------------
+alter table public.goals         enable row level security;
+alter table public.long_goals    enable row level security;
+alter table public.measurements  enable row level security;
+alter table public.forfeits      enable row level security;
+alter table public.week_results  enable row level security;
+
+drop policy if exists "goals: lecture groupe" on public.goals;
+drop policy if exists "goals: ecriture perso" on public.goals;
+create policy "goals: lecture groupe" on public.goals
+  for select to authenticated using (true);
+create policy "goals: ecriture perso" on public.goals
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "long_goals: lecture groupe" on public.long_goals;
+drop policy if exists "long_goals: ecriture perso" on public.long_goals;
+create policy "long_goals: lecture groupe" on public.long_goals
+  for select to authenticated using (true);
+create policy "long_goals: ecriture perso" on public.long_goals
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "measurements: lecture groupe" on public.measurements;
+drop policy if exists "measurements: ecriture perso" on public.measurements;
+create policy "measurements: lecture groupe" on public.measurements
+  for select to authenticated using (true);
+create policy "measurements: ecriture perso" on public.measurements
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Liste de gages partagée : chacun ajoute, et le groupe peut faire le ménage
+drop policy if exists "forfeits: lecture groupe" on public.forfeits;
+drop policy if exists "forfeits: ajout membre"   on public.forfeits;
+drop policy if exists "forfeits: maj groupe"     on public.forfeits;
+drop policy if exists "forfeits: suppr groupe"   on public.forfeits;
+create policy "forfeits: lecture groupe" on public.forfeits
+  for select to authenticated using (true);
+create policy "forfeits: ajout membre" on public.forfeits
+  for insert to authenticated with check (auth.uid() = created_by);
+create policy "forfeits: maj groupe" on public.forfeits
+  for update to authenticated using (true) with check (true);
+create policy "forfeits: suppr groupe" on public.forfeits
+  for delete to authenticated using (true);
+
+-- Bilans : lecture par tout le groupe, écriture uniquement par les fonctions
+-- ci-dessus (aucune policy insert/update/delete = personne ne peut trafiquer).
+drop policy if exists "week_results: lecture groupe" on public.week_results;
+create policy "week_results: lecture groupe" on public.week_results
+  for select to authenticated using (true);
+
+-- ---------------------------------------------------------------------
+-- 14. TEMPS RÉEL POUR LA PARTIE 2
+-- ---------------------------------------------------------------------
+select public.add_to_realtime('week_results');
+select public.add_to_realtime('goals');
+select public.add_to_realtime('forfeits');
+
+-- ---------------------------------------------------------------------
+-- 15. (FACULTATIF) CLÔTURE AUTOMATIQUE CHAQUE LUNDI
+--
+--     L'app clôture déjà les semaines à l'ouverture, donc ceci n'est pas
+--     nécessaire. Si tu veux que ça tombe tout seul le lundi à 8h même
+--     sans ouvrir l'app, active l'extension pg_cron (Database > Extensions)
+--     puis décommente :
+--
+--  select cron.schedule(
+--    'cloture-semaine-teamsport',
+--    '0 6 * * 1',                       -- 6h UTC = 8h à Paris (heure d'été)
+--    $$ select public._settle_pending_weeks() $$
+--  );
+-- ---------------------------------------------------------------------

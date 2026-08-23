@@ -83,6 +83,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="feed" type="button">Feed</button>
     <button class="tab" data-tab="rank" type="button">Classement</button>
+    <button class="tab" data-tab="gages" type="button">Gages<span id="gage-dot" class="dot hidden"></span></button>
     <button class="tab" data-tab="me" type="button">Moi</button>
   </nav>
 
@@ -119,6 +120,37 @@
       </div>
     </div>
 
+    <!-- ---------- GAGES ---------- -->
+    <div id="tab-gages" class="tabpane hidden">
+      <div class="card">
+        <div class="row-between">
+          <h4>Semaine en cours</h4>
+          <span class="muted small" id="week-remaining"></span>
+        </div>
+        <div id="week-status" class="week-status"></div>
+      </div>
+
+      <div id="pending-forfeits"></div>
+
+      <div class="card">
+        <div class="row-between">
+          <h4>La liste des gages</h4>
+          <span class="muted small" id="forfeit-count"></span>
+        </div>
+        <p class="muted small">Un gage est tiré au hasard dans cette liste dès que quelqu'un rate sa semaine.</p>
+        <div id="forfeit-list" class="forfeit-list"></div>
+        <div class="add-row">
+          <input id="forfeit-input" type="text" maxlength="120" placeholder="Nouveau gage…">
+          <button id="forfeit-add" class="btn" type="button">Ajouter</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>Historique</h4>
+        <div id="week-history" class="history"></div>
+      </div>
+    </div>
+
     <!-- ---------- MOI ---------- -->
     <div id="tab-me" class="tabpane hidden">
       <div class="card profile-card">
@@ -141,6 +173,72 @@
           </div>
           <div class="goal-bar"><div id="goal-fill" class="goal-fill"></div></div>
         </div>
+      </div>
+
+      <div class="card">
+        <h4>Mon contrat de la semaine</h4>
+        <p class="muted small">Ce que tu t'engages à faire chaque semaine. Si tu ne le tiens pas&nbsp;: gage.</p>
+
+        <label class="field-label">Séances par semaine</label>
+        <div id="sessions-chips" class="chips"></div>
+
+        <label class="field-label">
+          Kilomètres par semaine
+          <span class="muted">— course, vélo, marche… (0 = pas d'objectif km)</span>
+        </label>
+        <div class="duration-row">
+          <input id="km-target-input" type="number" min="0" max="500" step="1" value="0" inputmode="decimal">
+          <span class="muted">km / semaine</span>
+        </div>
+
+        <button id="save-goal" class="btn primary block" style="margin-top:16px">Enregistrer mon contrat</button>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h4>Mon objectif long terme</h4>
+          <button id="edit-long-goal" class="link" type="button">Modifier</button>
+        </div>
+        <div id="long-goal-view"></div>
+
+        <form id="long-goal-form" class="hidden">
+          <label class="field-label">Type d'objectif</label>
+          <div class="chips">
+            <button type="button" class="chip sel" data-kind="poids">⚖️ Poids</button>
+            <button type="button" class="chip" data-kind="libre">🎯 Libre</button>
+          </div>
+
+          <div class="field" style="margin-top:16px">
+            <label for="lg-title">Intitulé</label>
+            <input id="lg-title" type="text" maxlength="60" placeholder="Descendre à 78 kg">
+          </div>
+
+          <div class="row-3">
+            <div class="field">
+              <label for="lg-start">Départ</label>
+              <input id="lg-start" type="number" step="0.1" inputmode="decimal" placeholder="86">
+            </div>
+            <div class="field">
+              <label for="lg-target">Cible</label>
+              <input id="lg-target" type="number" step="0.1" inputmode="decimal" placeholder="78">
+            </div>
+            <div class="field">
+              <label for="lg-unit">Unité</label>
+              <input id="lg-unit" type="text" maxlength="10" value="kg">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="lg-deadline">Échéance <span class="muted">(facultatif)</span></label>
+            <input id="lg-deadline" type="date">
+          </div>
+
+          <p id="lg-error" class="error hidden"></p>
+          <div class="btn-row">
+            <button id="lg-cancel" class="btn" type="button">Annuler</button>
+            <button id="lg-save" class="btn primary" type="submit">Enregistrer</button>
+          </div>
+        </form>
       </div>
 
       <div class="card">
@@ -183,6 +281,16 @@
       <div class="duration-row">
         <input id="duration-input" type="number" min="5" max="600" step="5" value="45" inputmode="numeric">
         <span class="muted">minutes</span>
+      </div>
+
+      <div id="distance-block" class="hidden">
+        <label class="field-label" for="distance-input">
+          Distance <span class="muted">(compte pour ton objectif km)</span>
+        </label>
+        <div class="duration-row">
+          <input id="distance-input" type="number" min="0" max="500" step="0.1" inputmode="decimal" placeholder="8,5">
+          <span class="muted">km</span>
+        </div>
       </div>
 
       <label class="field-label">Preuve (photo obligatoire)</label>

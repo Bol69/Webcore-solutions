@@ -52,14 +52,21 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authErr } = await asUser.auth.getUser();
   if (authErr || !user) return json({ error: "non authentifié" }, 401);
 
-  // 2. La séance concernée
-  let workoutId: string | undefined;
+  let body: { workout_id?: string; type?: string; results?: WeekResult[] } = {};
   try {
-    workoutId = (await req.json())?.workout_id;
+    body = await req.json();
   } catch { /* corps vide */ }
-  if (!workoutId) return json({ error: "workout_id manquant" }, 400);
 
   const admin = createClient(url, service, { auth: { persistSession: false } });
+
+  // ---- Cas 2 : bilan de fin de semaine (gages tirés) -----------------
+  if (body.type === "week") {
+    return await notifyWeek(admin, body.results ?? []);
+  }
+
+  // ---- Cas 1 : quelqu'un vient de poster une séance ------------------
+  const workoutId = body.workout_id;
+  if (!workoutId) return json({ error: "workout_id manquant" }, 400);
 
   const { data: workout } = await admin
     .from("workouts")
@@ -84,13 +91,63 @@ Deno.serve(async (req) => {
     url: "./",
   });
 
-  // 3. Tous les abonnés sauf l'auteur
-  const { data: subs } = await admin
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
-    .neq("user_id", user.id);
+  // 3. Envoi à tout le monde sauf l'auteur
+  return json(await push(admin, payload, { exclude: user.id }));
+});
 
-  if (!subs?.length) return json({ sent: 0 });
+// =====================================================================
+//  Bilan de fin de semaine : qui a tenu son contrat, qui écope d'un gage
+// =====================================================================
+type WeekResult = {
+  user_id: string;
+  pseudo?: string;
+  success: boolean;
+  forfeit_label?: string | null;
+  sessions_done?: number;
+  sessions_target?: number;
+};
+
+async function notifyWeek(admin: SupabaseAdmin, results: WeekResult[]) {
+  const failed = results.filter((r) => !r.success);
+  if (!failed.length) {
+    if (!results.length) return json({ sent: 0 });
+    return json(await push(admin, JSON.stringify({
+      title: "Semaine bouclée 🏁",
+      body: "Tout le monde a tenu son contrat. Aucun gage cette semaine.",
+      tag: "week-result",
+      url: "./",
+    })));
+  }
+
+  const names = failed.map((r) => r.pseudo ?? "quelqu'un");
+  const title = failed.length === 1
+    ? `${names[0]} a raté sa semaine 🎲`
+    : `${names.join(" et ")} ont raté leur semaine 🎲`;
+
+  const body = failed.length === 1 && failed[0].forfeit_label
+    ? `Gage : ${failed[0].forfeit_label}`
+    : failed.map((r) => `${r.pseudo} : ${r.forfeit_label ?? "gage à définir"}`).join(" · ");
+
+  return json(await push(admin, JSON.stringify({
+    title, body, tag: "week-result", url: "./",
+  })));
+}
+
+// =====================================================================
+//  Envoi d'une notification à tous les abonnés (sauf exclusion)
+// =====================================================================
+type SupabaseAdmin = ReturnType<typeof createClient>;
+
+async function push(
+  admin: SupabaseAdmin,
+  payload: string,
+  opts: { exclude?: string } = {},
+) {
+  let query = admin.from("push_subscriptions").select("id, endpoint, p256dh, auth");
+  if (opts.exclude) query = query.neq("user_id", opts.exclude);
+
+  const { data: subs } = await query;
+  if (!subs?.length) return { sent: 0, removed: 0 };
 
   const dead: string[] = [];
   let sent = 0;
@@ -111,6 +168,5 @@ Deno.serve(async (req) => {
   }));
 
   if (dead.length) await admin.from("push_subscriptions").delete().in("id", dead);
-
-  return json({ sent, removed: dead.length });
-});
+  return { sent, removed: dead.length };
+}
