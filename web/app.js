@@ -101,6 +101,7 @@ const state = {
   longGoals: new Map(),  // user_id -> objectif long terme
   measurements: [],      // relevés de tout le groupe
   forfeits: [],          // la liste de gages partagée
+  wheelSpins: [],        // les tirages de roue (candidats de la semaine)
   weekResults: [],       // bilans hebdo figés (les plus récents d'abord)
   period: "week",
   tab: "feed",
@@ -217,7 +218,7 @@ async function ensureProfile() {
 }
 
 async function loadAll() {
-  const [profiles, workouts, reactions, goals, longGoals, measurements, forfeits, weeks] =
+  const [profiles, workouts, reactions, goals, longGoals, measurements, forfeits, weeks, spins] =
     await Promise.all([
       sb.from("profiles").select("*"),
       sb.from("workouts").select("*").order("created_at", { ascending: false }).limit(300),
@@ -227,6 +228,7 @@ async function loadAll() {
       sb.from("measurements").select("*").order("taken_on", { ascending: true }),
       sb.from("forfeits").select("*").order("created_at", { ascending: true }),
       sb.from("week_results").select("*").order("week_start", { ascending: false }).limit(60),
+      sb.from("wheel_spins").select("*").order("spun_at", { ascending: true }).limit(60),
     ]);
 
   if (profiles.data) {
@@ -240,6 +242,7 @@ async function loadAll() {
   state.measurements = measurements.data || [];
   state.forfeits     = forfeits.data || [];
   state.weekResults  = weeks.data || [];
+  state.wheelSpins   = spins.data || [];
   render();
 }
 
@@ -469,6 +472,7 @@ function daysLeftInWeek() {
 }
 
 function renderGages() {
+  renderWheel();
   renderWeekStatus();
   renderPendingForfeits();
   renderForfeitList();
@@ -478,6 +482,178 @@ function renderGages() {
     (r) => r.user_id === state.user.id && r.status === "pending");
   $("#gage-dot").classList.toggle("hidden", !mine);
 }
+
+/* ---------- la roue des gages ---------- *
+ *  Ouverte le samedi et le dimanche. Chacun tourne une fois : ça donne
+ *  jusqu'à 3 gages candidats. Lundi, celui qui a raté son contrat reçoit
+ *  l'un de ces 3, tiré au hasard.
+ *
+ *  Le résultat est décidé par le serveur (spin_wheel), la roue ne fait
+ *  que s'arrêter dessus : impossible de se choisir un gage tranquille.
+ * --------------------------------------------------------------------- */
+let wheelSig = "";     // liste actuellement dessinée
+let wheelAngle = 0;    // rotation cumulée, toujours croissante
+let wheelBusy = false;
+
+/** La roue est-elle ouverte ? (samedi ou dimanche, heure du groupe) */
+const wheelIsOpen = () => (dateFromStr(todayStr()).getUTCDay() + 6) % 7 >= 5;
+
+const shortLabel = (s, n = 16) =>
+  String(s).length > n ? String(s).slice(0, n - 1).trimEnd() + "…" : String(s);
+
+function drawWheel(items) {
+  const sig = items.map((f) => f.id).join(",");
+  if (sig === wheelSig) return;          // pas de redessin pendant qu'elle tourne
+  wheelSig = sig;
+  wheelAngle = 0;
+
+  const host = $("#wheel-svg");
+  if (!items.length) { host.innerHTML = ""; return; }
+
+  const C = 110, R = 100, seg = 360 / items.length;
+  const withText = seg >= 24;            // en dessous, les parts sont trop fines
+  const pt = (a, r) => {
+    const rad = ((a - 90) * Math.PI) / 180;
+    return [C + r * Math.cos(rad), C + r * Math.sin(rad)];
+  };
+
+  // Deux teintes en alternance ; avec un nombre impair de parts, la dernière
+  // en prend une troisième pour ne pas toucher la première.
+  const TINTS = ["rgba(255,176,32,.16)", "rgba(255,95,46,.32)", "rgba(77,141,255,.22)"];
+  const tintOf = (i) =>
+    TINTS[items.length % 2 && i === items.length - 1 ? 2 : i % 2];
+
+  // Les libellés se posent près du bord haut, puis tournent avec leur part.
+  // On les coupe à la largeur d'arc réellement disponible, sinon deux parts
+  // voisines se marchent dessus.
+  const FS = 8.5, TR = R - 14, TY = C - TR;
+  const arc = 2 * Math.PI * TR * (seg / 360);
+  const maxChars = Math.max(4, Math.floor((arc - 8) / (FS * 0.54)));
+  const parts = items.map((f, i) => {
+    const a0 = i * seg, a1 = a0 + seg, mid = a0 + seg / 2;
+    const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R);
+    const big = seg > 180 ? 1 : 0;
+    const wedge = items.length === 1
+      ? `<circle cx="${C}" cy="${C}" r="${R}" fill="${tintOf(i)}" stroke="#252c3a"/>`
+      : `<path d="M ${C} ${C} L ${x0} ${y0} A ${R} ${R} 0 ${big} 1 ${x1} ${y1} Z"
+               fill="${tintOf(i)}" stroke="#252c3a" stroke-width="1"/>`;
+    // dans la moitié basse, on retourne le texte sur place pour qu'il reste lisible
+    const flip = mid > 90 && mid < 270 ? ` rotate(180 ${C} ${TY})` : "";
+    const text = withText
+      ? `<text transform="rotate(${mid} ${C} ${C})${flip}" x="${C}" y="${TY}"
+               text-anchor="middle" fill="#eef2f8" font-size="${FS}" font-weight="600"
+               >${esc(shortLabel(f.label, maxChars))}</text>`
+      : "";
+    return wedge + text;
+  }).join("");
+
+  host.innerHTML = `
+    <svg viewBox="0 0 220 220" role="img"
+         aria-label="Roue des ${items.length} gages">
+      <g id="wheel-rotor" class="wheel-rotor">${parts}</g>
+      <circle cx="${C}" cy="${C}" r="19" fill="#171c26" stroke="#252c3a" stroke-width="2"/>
+      <text x="${C}" y="${C + 6}" text-anchor="middle" font-size="16">🎲</text>
+    </svg>`;
+}
+
+/** Amène la part `index` sous le repère du haut, avec au moins 5 tours */
+function spinTo(index, count) {
+  const rotor = $("#wheel-rotor");
+  if (!rotor || !count) return Promise.resolve();
+
+  const seg = 360 / count;
+  const want = -(index * seg + seg / 2);        // position finale, modulo 360
+  let next = wheelAngle + 360 * 5;
+  next += (((want - next) % 360) + 360) % 360;  // on n'avance jamais à reculons
+  wheelAngle = next;
+
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return new Promise((resolve) => {
+    if (still) { rotor.style.transform = `rotate(${wheelAngle}deg)`; return resolve(); }
+    const done = () => { rotor.removeEventListener("transitionend", done); resolve(); };
+    rotor.addEventListener("transitionend", done);
+    setTimeout(done, 5000);                     // filet de sécurité
+    requestAnimationFrame(() => {
+      rotor.style.transform = `rotate(${wheelAngle}deg)`;
+    });
+  });
+}
+
+function renderWheel() {
+  const ws = weekStart(todayStr());
+  const open = wheelIsOpen();
+  const items = state.forfeits.filter((f) => f.active);
+  const spins = state.wheelSpins.filter((s) => s.week_start === ws);
+  const mine = spins.find((s) => s.user_id === state.user.id);
+
+  drawWheel(items);
+
+  const btn = $("#wheel-spin");
+  const help = $("#wheel-help");
+  $("#wheel-state").textContent = open ? "ouverte jusqu'à dimanche minuit"
+                                       : "elle ouvre samedi";
+
+  if (!items.length) {
+    help.textContent = "Ajoutez d'abord des gages à la liste, juste en dessous.";
+    btn.disabled = true;
+    btn.textContent = "Tourner la roue";
+  } else if (mine) {
+    help.innerHTML = `Ton tirage de la semaine : <b>${esc(mine.forfeit_label)}</b>.`;
+    btn.disabled = true;
+    btn.textContent = "Tu as déjà tourné 🎲";
+  } else if (open) {
+    help.textContent =
+      "Tourne ta roue : elle sort un gage candidat. Lundi, celui qui n'a pas " +
+      "tenu son contrat récupère un des candidats du week-end.";
+    btn.disabled = wheelBusy;
+    btn.textContent = "Tourner la roue";
+  } else {
+    help.textContent =
+      "La roue s'ouvre samedi matin et se ferme dimanche à minuit. " +
+      "Chacun tire un candidat, et lundi le sort choisit parmi eux.";
+    btn.disabled = true;
+    btn.textContent = "Fermée jusqu'à samedi";
+  }
+
+  // les candidats déjà sortis cette semaine
+  $("#wheel-pool").innerHTML = !spins.length ? "" : `
+    <div class="wheel-pool-title">Les candidats de la semaine (${spins.length}/${
+      state.profiles.size})</div>
+    ${spins.map((s) => {
+      const p = state.profiles.get(s.user_id);
+      return `<div class="wheel-pool-row">
+                <span class="wp-who">${esc(p?.emoji || "")} ${esc(p?.pseudo || "?")}</span>
+                <span class="wp-lab">${esc(s.forfeit_label)}</span>
+              </div>`;
+    }).join("")}`;
+}
+
+$("#wheel-spin").onclick = async () => {
+  const btn = $("#wheel-spin");
+  const items = state.forfeits.filter((f) => f.active);
+  if (!items.length || wheelBusy) return;
+
+  wheelBusy = true;
+  btn.disabled = true;
+  btn.textContent = "Ça tourne…";
+  try {
+    const { data, error } = await sb.rpc("spin_wheel");
+    if (error) throw error;
+
+    const i = items.findIndex((f) => f.id === data.forfeit_id);
+    await spinTo(i >= 0 ? i : 0, items.length);
+    toast(`🎲 ${data.forfeit_label}`, 4500);
+    await loadAll();
+  } catch (e) {
+    const msg = String(e.message || e);
+    toast(/samedi/i.test(msg) ? "La roue n'ouvre que samedi et dimanche."
+        : /vide/i.test(msg)   ? "La liste des gages est vide."
+        : "Impossible de tourner la roue : " + msg, 4000);
+  } finally {
+    wheelBusy = false;
+    renderWheel();
+  }
+};
 
 /* ---------- où en est chacun cette semaine ---------- */
 function renderWeekStatus() {

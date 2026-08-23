@@ -146,6 +146,20 @@
     <div id="tab-gages" class="tabpane hidden">
       <div class="card">
         <div class="row-between">
+          <h4>La roue des gages</h4>
+          <span class="muted small" id="wheel-state"></span>
+        </div>
+        <p class="muted small" id="wheel-help"></p>
+        <div class="wheel-stage">
+          <div class="wheel-pin"></div>
+          <div id="wheel-svg" class="wheel-svg"></div>
+        </div>
+        <button id="wheel-spin" class="btn primary block" type="button">Tourner la roue</button>
+        <div id="wheel-pool" class="wheel-pool"></div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
           <h4>Semaine en cours</h4>
           <span class="muted small" id="week-remaining"></span>
         </div>

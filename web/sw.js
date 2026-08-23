@@ -1,6 +1,6 @@
 /* TeamSport — service worker : cache de l'app + réception des notifications */
 
-const CACHE = "teamsport-v2";
+const CACHE = "teamsport-v3";
 const SHELL = [
   "./",
   "./index.html",

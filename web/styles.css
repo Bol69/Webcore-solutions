@@ -416,6 +416,34 @@ details.data-table th:last-child{text-align:right}
 
 .empty-mini{color:var(--muted);font-size:13.5px;padding:6px 0;line-height:1.5}
 
+/* ---------- La roue des gages ---------- */
+.wheel-stage{position:relative;display:flex;justify-content:center;margin:6px 0 16px}
+.wheel-svg{width:min(260px,72vw)}
+.wheel-svg svg{display:block;width:100%;height:auto}
+.wheel-rotor{
+  transform-origin:50% 50%;
+  transition:transform 4.2s cubic-bezier(.15,.85,.25,1);
+}
+.wheel-pin{
+  position:absolute;top:-3px;left:50%;transform:translateX(-50%);
+  width:0;height:0;z-index:2;
+  border-left:9px solid transparent;border-right:9px solid transparent;
+  border-top:16px solid var(--accent);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));
+}
+.wheel-pool{margin-top:16px}
+.wheel-pool-title{font-size:12px;font-weight:700;color:var(--muted);padding-bottom:4px}
+.wheel-pool-row{
+  display:flex;align-items:baseline;gap:8px;
+  padding:8px 0;border-top:1px solid var(--line);font-size:13.5px;
+}
+.wp-who{flex:none;font-weight:600;max-width:36%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wp-lab{flex:1;min-width:0;color:var(--muted);font-size:13px;line-height:1.35}
+
+@media (prefers-reduced-motion:reduce){
+  .wheel-rotor{transition:none}
+}
+
 /* ---------- Tableau des séances ---------- */
 .week-nav{display:flex;align-items:center;gap:8px;margin-bottom:14px}
 .week-nav-label{

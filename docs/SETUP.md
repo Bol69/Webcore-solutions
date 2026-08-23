@@ -32,8 +32,9 @@ Il te faut juste un compte GitHub (déjà fait) et un compte Supabase gratuit.
 3. Clique **Run**.
 
 Ça crée : les profils, les séances, les réactions, le calcul des points, les
-contrats hebdomadaires, les objectifs long terme, la liste de gages, la clôture
-automatique des semaines, les règles de sécurité et le bucket privé pour les photos.
+contrats hebdomadaires, les objectifs long terme, la liste de gages, la roue,
+la clôture automatique des semaines, les règles de sécurité et le bucket privé
+pour les photos.
 
 > Le fichier est **ré-exécutable** : si tu l'avais déjà lancé dans une version
 > précédente, relance-le simplement en entier, rien ne sera cassé ni effacé.
@@ -132,6 +133,9 @@ Le workflow `.github/workflows/deploy-pages.yml` est déjà prêt.
    un temps, un nombre de tractions… avec une échéance dans quelques mois.
 3. Onglet **Gages** : écrivez ensemble votre liste de gages. Sept sont déjà là
    pour démarrer, supprimez ceux qui ne vous parlent pas et ajoutez les vôtres.
+4. **La roue** (même onglet) s'ouvre le **samedi** et se ferme **dimanche à minuit**.
+   Chacun la tourne une fois dans le week-end pour sortir un gage candidat.
+   Le lundi, celui qui a raté son contrat récupère un des candidats.
 
 Le premier bilan tombe le lundi suivant : la semaine où vous démarrez est offerte.
 

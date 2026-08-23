@@ -324,6 +324,19 @@ create table if not exists public.week_results (
 
 create index if not exists week_results_week_idx on public.week_results (week_start desc);
 
+-- La roue : chacun tire un gage candidat le samedi ou le dimanche.
+-- Lundi, celui qui a raté son contrat reçoit l'un de ces candidats.
+create table if not exists public.wheel_spins (
+  user_id       uuid not null references public.profiles(id) on delete cascade,
+  week_start    date not null,
+  forfeit_id    uuid references public.forfeits(id) on delete set null,
+  forfeit_label text not null,
+  spun_at       timestamptz not null default now(),
+  primary key (user_id, week_start)
+);
+
+create index if not exists wheel_spins_week_idx on public.wheel_spins (week_start desc);
+
 -- ---------------------------------------------------------------------
 -- 12. CLÔTURE DES SEMAINES (calcul du bilan + tirage du gage)
 --
@@ -385,9 +398,17 @@ begin
 
       v_fid := null; v_flabel := null;
       if not v_ok then
-        select f.id, f.label into v_fid, v_flabel
-          from public.forfeits f where f.active
+        -- On tire parmi les gages sortis à la roue ce week-end-là (un par
+        -- personne, donc jusqu'à 3 candidats)…
+        select s.forfeit_id, s.forfeit_label into v_fid, v_flabel
+          from public.wheel_spins s where s.week_start = w
          order by random() limit 1;
+        -- …et si personne n'a tourné sa roue, on tire dans la liste complète.
+        if v_flabel is null then
+          select f.id, f.label into v_fid, v_flabel
+            from public.forfeits f where f.active
+           order by random() limit 1;
+        end if;
       end if;
 
       insert into public.week_results (
@@ -443,6 +464,69 @@ end $$;
 grant execute on function public.set_forfeit_done(date, boolean) to authenticated;
 
 -- ---------------------------------------------------------------------
+-- 12 bis. LA ROUE
+--
+--     Le tirage est fait ICI, côté serveur. La roue affichée dans l'app
+--     ne fait que s'arrêter sur le résultat déjà décidé : impossible de
+--     se choisir un gage tranquille depuis son téléphone.
+-- ---------------------------------------------------------------------
+
+-- Ouverte le samedi et le dimanche (heure locale du groupe)
+create or replace function public.wheel_is_open() returns boolean
+language sql stable as $$
+  select extract(isodow from public.today_local())::int in (6, 7)
+$$;
+
+grant execute on function public.wheel_is_open() to authenticated;
+
+create or replace function public.spin_wheel()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_week  date := public.current_week_start();
+  v_id    uuid;
+  v_label text;
+begin
+  if auth.uid() is null then
+    raise exception 'authentification requise';
+  end if;
+
+  -- Déjà tourné cette semaine ? On renvoie le même résultat, sans re-tirer.
+  select ws.forfeit_id, ws.forfeit_label into v_id, v_label
+    from public.wheel_spins ws
+   where ws.user_id = auth.uid() and ws.week_start = v_week;
+  if found then
+    return jsonb_build_object(
+      'already', true, 'forfeit_id', v_id, 'forfeit_label', v_label);
+  end if;
+
+  if not public.wheel_is_open() then
+    raise exception 'la roue n''est ouverte que le samedi et le dimanche';
+  end if;
+
+  select f.id, f.label into v_id, v_label
+    from public.forfeits f where f.active
+   order by random() limit 1;
+  if v_label is null then
+    raise exception 'la liste des gages est vide';
+  end if;
+
+  insert into public.wheel_spins (user_id, week_start, forfeit_id, forfeit_label)
+  values (auth.uid(), v_week, v_id, v_label)
+  on conflict (user_id, week_start) do nothing;
+
+  -- On relit ce qui est réellement stocké : si deux appels partent en même
+  -- temps, tout le monde voit le même gage.
+  select ws.forfeit_id, ws.forfeit_label into v_id, v_label
+    from public.wheel_spins ws
+   where ws.user_id = auth.uid() and ws.week_start = v_week;
+
+  return jsonb_build_object(
+    'already', false, 'forfeit_id', v_id, 'forfeit_label', v_label);
+end $$;
+
+grant execute on function public.spin_wheel() to authenticated;
+
+-- ---------------------------------------------------------------------
 -- 13. SÉCURITÉ (RLS) POUR LA PARTIE 2
 -- ---------------------------------------------------------------------
 alter table public.goals         enable row level security;
@@ -450,6 +534,7 @@ alter table public.long_goals    enable row level security;
 alter table public.measurements  enable row level security;
 alter table public.forfeits      enable row level security;
 alter table public.week_results  enable row level security;
+alter table public.wheel_spins   enable row level security;
 
 drop policy if exists "goals: lecture groupe" on public.goals;
 drop policy if exists "goals: ecriture perso" on public.goals;
@@ -492,12 +577,18 @@ drop policy if exists "week_results: lecture groupe" on public.week_results;
 create policy "week_results: lecture groupe" on public.week_results
   for select to authenticated using (true);
 
+-- Roue : tout le groupe voit les tirages, mais seule spin_wheel() écrit.
+drop policy if exists "wheel_spins: lecture groupe" on public.wheel_spins;
+create policy "wheel_spins: lecture groupe" on public.wheel_spins
+  for select to authenticated using (true);
+
 -- ---------------------------------------------------------------------
 -- 14. TEMPS RÉEL POUR LA PARTIE 2
 -- ---------------------------------------------------------------------
 select public.add_to_realtime('week_results');
 select public.add_to_realtime('goals');
 select public.add_to_realtime('forfeits');
+select public.add_to_realtime('wheel_spins');
 
 -- ---------------------------------------------------------------------
 -- 15. (FACULTATIF) CLÔTURE AUTOMATIQUE CHAQUE LUNDI

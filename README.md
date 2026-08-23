@@ -68,9 +68,28 @@ Puis, automatiquement :
 3. Le lundi, à la première ouverture de l'app par n'importe qui, le serveur clôture
    la semaine écoulée. C'est **idempotent** : peu importe qui ouvre en premier,
    le résultat est identique et ne peut pas être recalculé.
-4. Contrat non tenu → **un gage tiré au hasard** dans la liste partagée, visible
-   par tout le groupe jusqu'à ce que la personne appuie sur « C'est fait ».
+4. Contrat non tenu → **un gage tiré au hasard**, visible par tout le groupe
+   jusqu'à ce que la personne appuie sur « C'est fait ».
 5. La **semaine d'inscription est offerte** (elle est presque toujours incomplète).
+
+### La roue
+
+Le tirage passe par une roue, dans l'onglet **Gages** :
+
+1. La roue est **ouverte le samedi et le dimanche**. Chacun la tourne **une fois**
+   dans le week-end : ça donne jusqu'à **3 gages candidats**, visibles par tous.
+2. Le lundi, chaque personne qui n'a pas tenu son contrat se voit tirer un gage
+   **parmi ces candidats** — deux perdants peuvent donc tomber sur des gages
+   différents.
+3. Si personne n'a tourné sa roue, on retombe sur un tirage dans la liste complète.
+   Un oubli ne bloque rien.
+
+Vous tournez donc **avant** de savoir qui a perdu : au moment du tirage, personne
+ne sait encore pour qui le gage tombera.
+
+> Le résultat est décidé par la base (`spin_wheel()`), la roue affichée ne fait que
+> s'arrêter dessus. Impossible de se choisir un gage tranquille depuis son téléphone,
+> et une fois tourné le résultat ne change plus.
 
 La liste des gages se remplit dans l'onglet **Gages** — chacun peut en ajouter et
 en retirer. Sept gages de départ sont livrés avec le schéma, à vous de les adapter.
