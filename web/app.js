@@ -315,13 +315,12 @@ function renderBanner() {
   el.classList.remove("hidden", "done");
   if (mine.length) {
     el.classList.add("done");
-    const pts = mine.reduce((a, w) => a + w.points, 0);
     const g = goalOf(state.user.id);
     const prog = weekProgress(state.user.id, weekStart(t));
     const left = Math.max(0, g.sessions_target - prog.sessions);
     el.textContent = left
-      ? `✅ Séance validée · +${pts} pts — encore ${left} séance${left > 1 ? "s" : ""} pour tenir ton contrat`
-      : `✅ Séance validée · +${pts} pts — contrat de la semaine tenu 🎉`;
+      ? `✅ Séance validée — encore ${left} séance${left > 1 ? "s" : ""} pour tenir ton contrat`
+      : `✅ Séance validée — contrat de la semaine tenu 🎉`;
   } else if (names.length) {
     el.textContent = `👀 ${names.join(" et ")} ${names.length > 1 ? "ont" : "a"} déjà posté aujourd'hui. Et toi ?`;
   } else {
@@ -363,12 +362,12 @@ async function renderFeed() {
             <div class="post-who">${esc(p?.pseudo || "Inconnu")}</div>
             <div class="post-meta">${timeAgo(w.created_at)}</div>
           </div>
-          <div class="post-pts${w.points ? "" : " zero"}">${w.points ? "+" + w.points : "0"} pts</div>
         </div>
         <img class="post-photo" src="${url}" alt="Preuve de séance" loading="lazy" data-full="${url}">
         <div class="post-tags">
           <span class="tag">${sportEmoji(w.sport)} ${esc(w.sport)}</span>
           <span class="tag">⏱ ${w.duration_min} min</span>
+          ${w.distance_km ? `<span class="tag">📍 ${fmtKm(w.distance_km)} km</span>` : ""}
           ${w.streak_at > 1 ? `<span class="tag fire">🔥 ${w.streak_at} jours</span>` : ""}
         </div>
         ${w.note ? `<div class="post-note">${esc(w.note)}</div>` : ""}
@@ -388,37 +387,89 @@ function periodFilter(w) {
   return true;
 }
 
-function renderRanking() {
-  const rows = [...state.profiles.values()].map((p) => {
-    const mine = state.workouts.filter((w) => w.user_id === p.id);
-    const inPeriod = mine.filter(periodFilter);
+/** Où en est quelqu'un sur son contrat : 1 = tenu. Sert à départager. */
+function contractRatio(sessions, target, km, kmTarget) {
+  const a = target > 0 ? Math.min(1, sessions / target) : 1;
+  if (!kmTarget) return a;
+  return (a + Math.min(1, km / kmTarget)) / 2;
+}
+
+/** Une ligne de classement par personne, selon la période choisie */
+function rankRows() {
+  const t = todayStr();
+  const ws = weekStart(t);
+
+  return [...state.profiles.values()].map((p) => {
+    // --- semaine en cours : on juge en direct
+    if (state.period === "week") {
+      const g = goalOf(p.id);
+      const prog = weekProgress(p.id, ws);
+      const held = prog.sessions >= g.sessions_target && prog.km >= g.km_target;
+      const missing = Math.max(0, g.sessions_target - prog.sessions);
+      const kmLeft = Math.max(0, g.km_target - prog.km);
+      return {
+        p, held,
+        score: held ? 1 : 0,
+        ratio: contractRatio(prog.sessions, g.sessions_target, prog.km, g.km_target),
+        main: `${prog.sessions}/${g.sessions_target}`,
+        unit: "séances",
+        sub: held ? "contrat tenu 💪"
+           : missing ? `il manque ${missing} séance${missing > 1 ? "s" : ""}`
+           : `il manque ${fmtKm(kmLeft)} km`,
+      };
+    }
+
+    // --- mois / total : on compte les semaines déjà clôturées
+    const since = state.period === "month" ? monthStart(t) : null;
+    const rows = state.weekResults.filter(
+      (r) => r.user_id === p.id && (!since || r.week_start >= since));
+    const ok = rows.filter((r) => r.success).length;
+    const missed = rows.length - ok;
     return {
       p,
-      pts: inPeriod.reduce((a, w) => a + w.points, 0),
-      count: inPeriod.length,
-      minutes: inPeriod.reduce((a, w) => a + w.duration_min, 0),
-      streak: streakOf(new Set(mine.map((w) => w.done_on))),
+      held: rows.length > 0 && missed === 0,
+      score: ok,
+      ratio: rows.length ? ok / rows.length : 0,
+      main: `${ok}/${rows.length}`,
+      unit: rows.length > 1 ? "semaines" : "semaine",
+      sub: !rows.length ? "rien de clôturé"
+         : missed === 0 ? "sans faute 💪"
+         : `${missed} ratée${missed > 1 ? "s" : ""}`,
     };
-  }).sort((a, b) => b.pts - a.pts || b.count - a.count);
+  }).sort((a, b) => b.score - a.score || b.ratio - a.ratio);
+}
 
-  const max = Math.max(1, ...rows.map((r) => r.pts));
+function renderRanking() {
+  const rows = rankRows();
+
+  // Ex æquo : même score = même place, et la place suivante s'enchaîne.
+  // Deux qui tiennent leur contrat sont 1ers tous les deux, celui qui rate est 2e.
+  let rank = 0;
+  rows.forEach((r, i) => {
+    const prev = rows[i - 1];
+    if (!prev || prev.score !== r.score || prev.ratio !== r.ratio) rank++;
+    r.rank = rank;
+  });
+
+  const medal = (n) => (n === 1 ? "🥇" : n === 2 ? "🥈" : n === 3 ? "🥉" : n);
+
   $("#podium").innerHTML = rows.slice(0, 3).map((r) => `
     <div class="pod">
       <div class="pod-emoji">${esc(r.p.emoji)}</div>
       <div class="pod-name">${esc(r.p.pseudo)}</div>
-      <div class="pod-bar" style="height:${28 + (r.pts / max) * 84}px">${r.pts}</div>
+      <div class="pod-bar${r.held ? " ok" : ""}"
+           style="height:${28 + r.ratio * 84}px">${r.main}</div>
     </div>`).join("");
 
-  $("#ranking").innerHTML = rows.map((r, i) => `
+  $("#ranking").innerHTML = rows.map((r) => `
     <div class="rank-row${r.p.id === state.user.id ? " me" : ""}">
-      <div class="rank-pos">${i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</div>
+      <div class="rank-pos">${medal(r.rank)}</div>
       <div class="rank-emoji">${esc(r.p.emoji)}</div>
       <div>
         <div class="rank-name">${esc(r.p.pseudo)}</div>
-        <div class="rank-sub">${r.count} séance${r.count > 1 ? "s" : ""} · ${r.minutes} min${
-          r.streak > 1 ? ` · 🔥 ${r.streak} j` : ""}</div>
+        <div class="rank-sub">${esc(r.sub)}</div>
       </div>
-      <div class="rank-pts">${r.pts}<span> pts</span></div>
+      <div class="rank-score${r.held ? " ok" : ""}">${r.main}<span> ${r.unit}</span></div>
     </div>`).join("");
 }
 
@@ -431,7 +482,8 @@ function renderMe() {
   $("#me-email").textContent = state.user.email;
 
   const mine = state.workouts.filter((w) => w.user_id === state.user.id);
-  $("#me-total").textContent = mine.reduce((a, w) => a + w.points, 0);
+  $("#me-weeks").textContent = state.weekResults.filter(
+    (r) => r.user_id === state.user.id && r.success).length;
   $("#me-count").textContent = mine.length;
   $("#me-streak").textContent = streakOf(new Set(mine.map((w) => w.done_on)));
 
@@ -915,9 +967,9 @@ function renderTable() {
     return dayHead + `
       <div class="tl-row">
         <span class="tl-who">${esc(p?.emoji || "")} ${esc(p?.pseudo || "?")}</span>
-        <span class="tl-what">${sportEmoji(w.sport)} ${esc(w.sport)} · ${w.duration_min} min${
+        <span class="tl-what">${sportEmoji(w.sport)} ${esc(w.sport)}${
           w.distance_km ? ` · ${fmtKm(w.distance_km)} km` : ""}</span>
-        <span class="tl-pts">+${w.points}</span>
+        <span class="tl-dur">${w.duration_min} min</span>
       </div>`;
   }).join("");
 }
@@ -1452,7 +1504,7 @@ $("#submit-workout").onclick = async () => {
 
     resetDraft();
     closeModal();
-    toast(ins.data.points ? `Séance validée · +${ins.data.points} pts 🔥` : "Séance ajoutée (0 pt aujourd'hui)");
+    toast("Séance validée 🔥");
     await loadAll();
     $('.tab[data-tab="feed"]').click();
   } catch (e) {

@@ -10,7 +10,7 @@ export const CONFIG = {
 
   // Notifications push (facultatif au début, voir docs/SETUP.md étape 5)
   // Générer avec :  node tools/gen-vapid.mjs
-  VAPID_PUBLIC_KEY: "",
+  VAPID_PUBLIC_KEY: "BJNTvyo6xPzssbxpGxUWQdjUtZZzVxXpVoXKrslHcQYUTe7QKtryVMOd9ID0gIy81mStVdBqZTbsTpPGClrOr6s",
 
   // ---- Réglages du groupe -------------------------------------------
   GROUP_NAME: "projet BAF",   // affiché en haut de l'app

@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
   const { data: workout } = await admin
     .from("workouts")
-    .select("id, user_id, sport, duration_min, points, streak_at")
+    .select("id, user_id, sport, duration_min, distance_km, streak_at")
     .eq("id", workoutId)
     .single();
 
@@ -83,10 +83,11 @@ Deno.serve(async (req) => {
   const pseudo = profile?.pseudo ?? "Un pote";
   const emoji = SPORT_EMOJI[workout.sport] ?? "🤸";
   const streak = workout.streak_at > 2 ? ` · série de ${workout.streak_at} jours 🔥` : "";
+  const km = workout.distance_km ? ` · ${workout.distance_km} km` : "";
 
   const payload = JSON.stringify({
     title: `${pseudo} a fait sa séance ${emoji}`,
-    body: `${workout.sport} · ${workout.duration_min} min · +${workout.points} pts${streak}`,
+    body: `${workout.sport} · ${workout.duration_min} min${km}${streak}`,
     tag: `workout-${workout.id}`,
     url: "./",
   });

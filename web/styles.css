@@ -155,13 +155,6 @@ code{background:var(--bg-2);padding:2px 6px;border-radius:6px;font-size:12.5px;c
 }
 .post-who{font-weight:700;font-size:15px}
 .post-meta{font-size:12.5px;color:var(--muted)}
-.post-pts{
-  margin-left:auto;flex:none;
-  background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  color:#160b04;font-weight:800;font-size:13px;
-  padding:6px 11px;border-radius:999px;
-}
-.post-pts.zero{background:var(--card-2);color:var(--muted)}
 .post-photo{width:100%;display:block;background:var(--bg-2);cursor:zoom-in;aspect-ratio:4/3;object-fit:cover}
 .post-note{padding:12px 15px 0;font-size:14.5px;line-height:1.45}
 .post-tags{display:flex;gap:7px;padding:12px 15px 0;flex-wrap:wrap}
@@ -195,7 +188,7 @@ code{background:var(--bg-2);padding:2px 6px;border-radius:6px;font-size:12.5px;c
   border-radius:12px 12px 0 0;padding:8px 0;font-weight:800;font-size:15px;
   background:var(--card-2);border:1px solid var(--line);border-bottom:none;
 }
-.pod:nth-child(1) .pod-bar{background:linear-gradient(180deg,var(--accent-2),var(--accent));color:#160b04;border:none}
+.pod-bar.ok{background:linear-gradient(180deg,var(--accent-2),var(--accent));color:#160b04;border:none}
 
 .ranking{display:flex;flex-direction:column;gap:9px;margin-bottom:16px}
 .rank-row{
@@ -208,8 +201,9 @@ code{background:var(--bg-2);padding:2px 6px;border-radius:6px;font-size:12.5px;c
 .rank-emoji{font-size:22px}
 .rank-name{font-weight:700;font-size:15px}
 .rank-sub{font-size:12px;color:var(--muted)}
-.rank-pts{margin-left:auto;font-weight:800;font-size:17px}
-.rank-pts span{font-size:11px;color:var(--muted);font-weight:600}
+.rank-score{margin-left:auto;text-align:right;font-weight:800;font-size:17px;color:var(--muted)}
+.rank-score.ok{color:var(--green)}
+.rank-score span{display:block;font-size:10.5px;color:var(--muted);font-weight:600}
 .rules{margin:8px 0 0;padding-left:20px;color:var(--muted);font-size:14px;line-height:1.75}
 .rules b{color:var(--txt)}
 
@@ -505,7 +499,7 @@ details.data-table th:last-child{text-align:right}
 }
 .tl-who{flex:none;font-weight:600;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl-what{flex:1;min-width:0;color:var(--muted);font-size:13px;line-height:1.35}
-.tl-pts{flex:none;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.tl-dur{flex:none;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 @media (max-width:360px){
   .tab{font-size:11.5px;padding:9px 1px}

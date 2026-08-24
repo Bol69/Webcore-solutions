@@ -31,10 +31,9 @@ Il te faut juste un compte GitHub (déjà fait) et un compte Supabase gratuit.
 2. Ouvre le fichier `supabase/schema.sql` de ce dépôt, **copie tout**, colle dans l'éditeur.
 3. Clique **Run**.
 
-Ça crée : les profils, les séances, les réactions, le calcul des points, les
-contrats hebdomadaires, les objectifs long terme, la liste de gages, la roue,
-la clôture automatique des semaines, les règles de sécurité et le bucket privé
-pour les photos.
+Ça crée : les profils, les séances, les réactions, les contrats hebdomadaires,
+les objectifs long terme, la liste de gages, la roue, la clôture automatique
+des semaines, les règles de sécurité et le bucket privé pour les photos.
 
 > Le fichier est **ré-exécutable** : si tu l'avais déjà lancé dans une version
 > précédente, relance-le simplement en entier, rien ne sera cassé ni effacé.

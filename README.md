@@ -3,7 +3,8 @@
 # 🏆 TeamSport
 
 **Le pointage sport privé, entre potes.**
-Tu fais ta séance → tu postes la preuve → tu marques des points → tes potes reçoivent une notif.
+Tu fais ta séance → tu postes la preuve → tes potes reçoivent une notif.
+Tu rates ton contrat de la semaine → tu prends un gage le lundi.
 
 *100 % gratuit · aucune carte bancaire · groupe fermé à 3 personnes*
 
@@ -24,32 +25,31 @@ Tu fais ta séance → tu postes la preuve → tu marques des points → tes pot
   le tirage sont faits par la base, pas par le téléphone.
 - 🎯 **Objectif long terme** — un poids à atteindre, un temps au 10 km, un nombre
   de tractions… sur quelques mois ou un an, avec courbe de suivi et progression.
-- 🏅 **Points automatiques** — calculés **côté serveur**, impossible à truquer
-  depuis le téléphone.
-- 🔥 **Séries (streaks)** — les jours consécutifs rapportent plus.
-- 📊 **Classement** semaine / mois / total, avec podium.
+- 🔥 **Séries (streaks)** — les jours d'affilée sont comptés et affichés.
+- 📊 **Classement au contrat** — pas de points : ceux qui tiennent leur contrat sont
+  premiers ex æquo, les autres derrière. Semaine / mois / total, avec podium.
 - 🗓️ **Tableau des séances** — une grille qui montre, semaine par semaine, qui a
   fait quoi et quel jour. On remonte les semaines passées avec les flèches.
-- 🔔 **Notifications push** — « Bilel a fait sa séance 🏋️ · Muscu · 60 min · +12 pts ».
+- 🔔 **Notifications push** — « Bilel a fait sa séance 🏋️ · Muscu · 60 min », et le
+  bilan du lundi avec les gages tirés.
 - ⚡ **Feed en direct** — pas besoin de rafraîchir, ça arrive tout seul.
 - 💬 **Réactions** 💪 🔥 👏 😤 🐐 sous chaque séance.
-- 🎯 **Objectif hebdo** par personne, avec barre de progression.
 - 📱 **PWA** — s'installe sur l'écran d'accueil et s'ouvre en plein écran, comme une vraie app.
   Fonctionne sur iPhone **et** Android, sans passer par l'App Store.
 
-## Le barème
+## Le classement
 
-| Règle | Points |
+**Il n'y a pas de points.** Le seul but, c'est de tenir son contrat.
+
+| Situation | Place |
 |---|---|
-| Une séance prouvée | **+10** |
-| Chaque tranche de 10 min au-delà de 30 min | **+1** (max +10) |
-| Chaque jour de série en cours | **+2** (max +10) |
-| 3ᵉ séance du même jour et suivantes | **0** (anti-spam) |
+| Contrat tenu | **1er** — et si vous êtes plusieurs, vous êtes **tous 1ers** |
+| Contrat raté | derrière, avec un **gage le lundi** |
 
-*Exemple : 60 min de muscu, 3ᵉ jour d'affilée → 10 + 3 + 4 = **17 points**.*
+*Exemple : deux d'entre vous tiennent leur contrat, le troisième rate une séance
+→ les deux sont 1ers, le troisième est 2e et prend le gage.*
 
-Tout se règle dans `web/config.js` (sports, nom du groupe) et dans la fonction
-`compute_workout_points()` de `supabase/schema.sql` pour le barème.
+En **Mois** et **Total**, le classement compte le nombre de **semaines tenues**.
 
 ## Le contrat hebdo et les gages
 
@@ -125,7 +125,7 @@ cd web && python3 -m http.server 5173
 
 ```
 web/                      l'application (aucun build, aucune dépendance à installer)
-  index.html              écrans : connexion, feed, classement, profil
+  index.html              écrans : connexion, feed, classement, tableau, gages, profil
   app.js                  toute la logique
   styles.css              thème sombre, mobile first
   config.js               ⚙️ LE SEUL FICHIER À REMPLIR
@@ -133,7 +133,7 @@ web/                      l'application (aucun build, aucune dépendance à inst
   manifest.webmanifest    pour l'installation sur l'écran d'accueil
   vendor/supabase.js      le client Supabase, pré-compilé et embarqué (aucun CDN)
 supabase/
-  schema.sql              tables, sécurité (RLS), points, contrats hebdo, gages
+  schema.sql              tables, sécurité (RLS), contrats hebdo, gages, roue
   functions/notify/       Edge Function qui envoie les push
 tools/
   gen-vapid.mjs           génère les clés de notification
