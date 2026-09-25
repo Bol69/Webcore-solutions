@@ -1,6 +1,6 @@
 /* TeamSport — service worker : cache de l'app + réception des notifications */
 
-const CACHE = "teamsport-v7";
+const CACHE = "teamsport-v8";
 const SHELL = [
   "./",
   "./index.html",
@@ -65,7 +65,10 @@ self.addEventListener("push", (e) => {
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const target = new URL(e.notification.data?.url || "./", self.location.origin).href;
+  // On résout par rapport au dossier de l'app (self.registration.scope),
+  // pas par rapport à la racine du domaine : sur GitHub Pages l'app vit
+  // dans un sous-dossier (…/Webcore-solutions/), pas à la racine.
+  const target = new URL(e.notification.data?.url || "./", self.registration.scope).href;
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
