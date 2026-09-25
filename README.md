@@ -66,8 +66,8 @@ Chacun définit son propre contrat dans l'onglet **Moi** :
 Puis, automatiquement :
 
 1. La semaine va du **lundi au dimanche** (heure de Paris).
-2. Une séance = **un jour** où tu as posté au moins une preuve — poster deux fois
-   le même jour ne compte pas double.
+2. **Chaque séance postée compte**, même plusieurs le même jour : tu as raté lundi,
+   tu en fais deux mardi, tu es à jour.
 3. Le lundi, à la première ouverture de l'app par n'importe qui, le serveur clôture
    la semaine écoulée. C'est **idempotent** : peu importe qui ouvre en premier,
    le résultat est identique et ne peut pas être recalculé.

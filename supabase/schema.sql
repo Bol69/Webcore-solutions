@@ -61,28 +61,19 @@ create index if not exists workouts_created_idx on public.workouts (created_at d
 create index if not exists workouts_user_day_idx on public.workouts (user_id, done_on);
 
 -- ---------------------------------------------------------------------
--- 3. CALCUL DES POINTS (côté serveur : impossible à truquer depuis le tel)
+-- 3. DATE ET SÉRIE (côté serveur : impossible à truquer depuis le tel)
 --
---    10 pts   par séance
---    +1 pt    par tranche de 10 min au-delà de 30 min (max +10)
---    +2 pts   par jour de série en cours (max +10)
---    3e séance du même jour et suivantes : 0 pt (mais elle reste dans le feed)
+--    Il n'y a plus de points : seul compte le respect du contrat. On fixe
+--    ici la date de la séance et la série de jours en cours.
 -- ---------------------------------------------------------------------
 create or replace function public.compute_workout_points()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  already_today int;
-  streak        int := 0;
-  cursor_day    date;
-  duration_bonus int;
+  streak     int := 0;
+  cursor_day date;
 begin
   -- La date est décidée par le serveur, pas par le téléphone
   new.done_on := public.today_local();
-
-  select count(*) into already_today
-    from public.workouts w
-   where w.user_id = new.user_id
-     and w.done_on = new.done_on;
 
   -- Série : nombre de jours consécutifs terminés juste avant aujourd'hui
   cursor_day := new.done_on - 1;
@@ -93,15 +84,9 @@ begin
     streak     := streak + 1;
     cursor_day := cursor_day - 1;
   end loop;
+
   new.streak_at := streak + 1;  -- aujourd'hui compris
-
-  if already_today >= 2 then
-    new.points := 0;            -- anti-spam
-    return new;
-  end if;
-
-  duration_bonus := least(greatest((new.duration_min - 30) / 10, 0), 10);
-  new.points := 10 + duration_bonus + 2 * least(streak, 5);
+  new.points := 0;              -- colonne conservée pour l'historique
   return new;
 end $$;
 
@@ -388,7 +373,8 @@ begin
       v_st := coalesce(v_st, 3);
       v_kt := coalesce(v_kt, 0);
 
-      select count(distinct wo.done_on), coalesce(sum(wo.distance_km), 0)
+      -- Chaque séance compte : deux séances mardi rattrapent le lundi manqué
+      select count(*), coalesce(sum(wo.distance_km), 0)
         into v_sessions, v_km
         from public.workouts wo
        where wo.user_id = p.id

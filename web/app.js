@@ -269,7 +269,8 @@ function weekProgress(userId, ws) {
   const rows = state.workouts.filter(
     (w) => w.user_id === userId && w.done_on >= ws && w.done_on <= end);
   return {
-    sessions: new Set(rows.map((w) => w.done_on)).size,
+    // chaque séance compte : deux séances mardi rattrapent le lundi manqué
+    sessions: rows.length,
     km: rows.reduce((a, w) => a + Number(w.distance_km || 0), 0),
   };
 }
