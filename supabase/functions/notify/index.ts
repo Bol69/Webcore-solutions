@@ -149,7 +149,7 @@ async function notifyWeek(admin: SupabaseAdmin, results: WeekResult[]) {
 
 // =====================================================================
 //  Rappels « pense à pointer »
-//  Appelé toutes les 15 min par le cron. La base décide qui est dû et
+//  Appelé chaque minute par le cron. La base décide qui est dû et
 //  marque l'envoi au passage, donc jamais deux notifs pour un rappel.
 // =====================================================================
 async function notifyReminders(admin: SupabaseAdmin) {

@@ -114,7 +114,7 @@ partent vraiment, il faut un cron côté base :
    (section 17), décommente-le, remplace `TON-PROJET` par ton identifiant et
    `SERVICE_ROLE_KEY` par ta clé **service_role** (Settings → API Keys), puis **Run**.
 
-Le cron réveille la fonction `notify` toutes les 15 minutes ; elle demande à la base
+Le cron réveille la fonction `notify` chaque minute (≈ 43 000 appels/mois, l'offre gratuite en permet 500 000) ; elle demande à la base
 qui est dû et envoie les notifs. La clé reste dans ta base, jamais dans le dépôt.
 
 > Pour arrêter les rappels : `select cron.unschedule('rappels-teamsport');`

@@ -580,7 +580,7 @@ select public.add_to_realtime('wheel_spins');
 -- 15. RAPPELS « pense à pointer »
 --
 --     Chacun choisit ses jours et son heure. Un cron appelle la fonction
---     Edge « notify » toutes les 15 min ; elle demande ici qui est dû.
+--     Edge « notify » chaque minute ; elle demande ici qui est dû.
 -- ---------------------------------------------------------------------
 create table if not exists public.reminders (
   user_id      uuid primary key references public.profiles(id) on delete cascade,
@@ -665,7 +665,7 @@ select public.add_to_realtime('reminders');
 --
 --  select cron.schedule(
 --    'rappels-teamsport',
---    '*/15 * * * *',                    -- toutes les 15 minutes
+--    '* * * * *',                       -- chaque minute : rappel quasi immédiat
 --    $$
 --    select net.http_post(
 --      url     := 'https://TON-PROJET.supabase.co/functions/v1/notify',
@@ -677,4 +677,6 @@ select public.add_to_realtime('reminders');
 --  );
 --
 --     Pour arrêter les rappels :  select cron.unschedule('rappels-teamsport');
+--     Pour changer la fréquence sans retaper la clé :
+--       select cron.alter_job(job_id := <id>, schedule := '* * * * *');
 -- ---------------------------------------------------------------------
