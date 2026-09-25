@@ -104,6 +104,21 @@ supabase functions deploy notify
 
 4. Dans l'app, onglet **Moi** → **Activer les notifications**. À faire par chacun.
 
+### Les rappels « pense à pointer »
+
+Chacun règle ses jours et son heure dans **Moi → Mes rappels**. Pour que les rappels
+partent vraiment, il faut un cron côté base :
+
+1. **Database → Extensions** : active **`pg_cron`** et **`pg_net`**.
+2. **SQL Editor** : copie le bloc `cron.schedule` en bas de `supabase/schema.sql`
+   (section 17), décommente-le, remplace `TON-PROJET` par ton identifiant et
+   `SERVICE_ROLE_KEY` par ta clé **service_role** (Settings → API Keys), puis **Run**.
+
+Le cron réveille la fonction `notify` toutes les 15 minutes ; elle demande à la base
+qui est dû et envoie les notifs. La clé reste dans ta base, jamais dans le dépôt.
+
+> Pour arrêter les rappels : `select cron.unschedule('rappels-teamsport');`
+
 **Sur iPhone c'est obligatoire** : ouvre le site dans Safari → bouton *Partager* →
 **« Sur l'écran d'accueil »**, puis lance l'app **depuis l'icône**. iOS n'autorise
 les notifications web que dans ce mode (iOS 16.4 minimum).

@@ -39,25 +39,38 @@ Deno.serve(async (req) => {
   webpush.setVapidDetails(subject, publicKey, privateKey);
 
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader) return json({ error: "non authentifié" }, 401);
 
   const url = Deno.env.get("SUPABASE_URL")!;
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // 1. Qui appelle ? (on vérifie le JWT du membre)
-  const asUser = createClient(url, anon, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user }, error: authErr } = await asUser.auth.getUser();
-  if (authErr || !user) return json({ error: "non authentifié" }, 401);
-
-  let body: { workout_id?: string; type?: string; results?: WeekResult[] } = {};
+  let body: {
+    workout_id?: string;
+    type?: string;
+    results?: WeekResult[];
+  } = {};
   try {
     body = await req.json();
   } catch { /* corps vide */ }
 
   const admin = createClient(url, service, { auth: { persistSession: false } });
+
+  // ---- Cas 3 : le cron des rappels -----------------------------------
+  // Appelé par pg_cron avec la clé service_role, sans utilisateur connecté.
+  if (body.type === "reminders") {
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!sameSecret(token, service)) return json({ error: "non authentifié" }, 401);
+    return await notifyReminders(admin);
+  }
+
+  // ---- Les autres cas exigent un membre connecté ----------------------
+  if (!authHeader) return json({ error: "non authentifié" }, 401);
+
+  const asUser = createClient(url, anon, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: authErr } = await asUser.auth.getUser();
+  if (authErr || !user) return json({ error: "non authentifié" }, 401);
 
   // ---- Cas 2 : bilan de fin de semaine (gages tirés) -----------------
   if (body.type === "week") {
@@ -135,6 +148,39 @@ async function notifyWeek(admin: SupabaseAdmin, results: WeekResult[]) {
 }
 
 // =====================================================================
+//  Rappels « pense à pointer »
+//  Appelé toutes les 15 min par le cron. La base décide qui est dû et
+//  marque l'envoi au passage, donc jamais deux notifs pour un rappel.
+// =====================================================================
+async function notifyReminders(admin: SupabaseAdmin) {
+  const { data, error } = await admin.rpc("take_due_reminders");
+  if (error) return json({ error: error.message }, 500);
+
+  const due = (data ?? []) as { r_user_id: string; r_pseudo: string }[];
+  let sent = 0;
+
+  for (const r of due) {
+    const res = await push(admin, JSON.stringify({
+      title: "C'est l'heure de ta séance 💪",
+      body: `${r.r_pseudo}, pense à poster ta preuve pour tenir ton contrat.`,
+      tag: "reminder",
+      url: "./",
+    }), { only: r.r_user_id });
+    sent += res.sent;
+  }
+
+  return json({ reminders: due.length, sent });
+}
+
+/** Comparaison à temps constant : ne fuite pas la clé octet par octet */
+function sameSecret(a: string, b: string) {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// =====================================================================
 //  Envoi d'une notification à tous les abonnés (sauf exclusion)
 // =====================================================================
 type SupabaseAdmin = ReturnType<typeof createClient>;
@@ -142,10 +188,11 @@ type SupabaseAdmin = ReturnType<typeof createClient>;
 async function push(
   admin: SupabaseAdmin,
   payload: string,
-  opts: { exclude?: string } = {},
+  opts: { exclude?: string; only?: string } = {},
 ) {
   let query = admin.from("push_subscriptions").select("id, endpoint, p256dh, auth");
   if (opts.exclude) query = query.neq("user_id", opts.exclude);
+  if (opts.only) query = query.eq("user_id", opts.only);
 
   const { data: subs } = await query;
   if (!subs?.length) return { sent: 0, removed: 0 };

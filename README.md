@@ -32,6 +32,9 @@ Tu rates ton contrat de la semaine → tu prends un gage le lundi.
   fait quoi et quel jour. On remonte les semaines passées avec les flèches.
 - 🔔 **Notifications push** — « Bilel a fait sa séance 🏋️ · Muscu · 60 min », et le
   bilan du lundi avec les gages tirés.
+- ⏰ **Rappels personnels** — chacun choisit ses jours et son heure (« lun, mer, ven
+  à 18h30 ») et reçoit une notif pour penser à poster. Option : pas de rappel si
+  la séance du jour est déjà postée.
 - ⚡ **Feed en direct** — pas besoin de rafraîchir, ça arrive tout seul.
 - 💬 **Réactions** 💪 🔥 👏 😤 🐐 sous chaque séance.
 - 📱 **PWA** — s'installe sur l'écran d'accueil et s'ouvre en plein écran, comme une vraie app.

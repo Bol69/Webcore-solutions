@@ -288,6 +288,35 @@
       </div>
 
       <div class="card">
+        <div class="row-between">
+          <h4>Mes rappels</h4>
+          <span class="muted small" id="rem-state"></span>
+        </div>
+        <p class="muted small">Une notif sur ton téléphone pour penser à poster ta séance.</p>
+
+        <label class="check-row">
+          <input type="checkbox" id="rem-enabled">
+          <span>Activer mes rappels</span>
+        </label>
+
+        <div id="rem-settings" class="hidden">
+          <label class="field-label">Quels jours&nbsp;?</label>
+          <div id="rem-days" class="chips"></div>
+
+          <label class="field-label">À quelle heure&nbsp;?</label>
+          <input id="rem-time" type="time" class="time-input" value="18:00">
+
+          <label class="check-row">
+            <input type="checkbox" id="rem-skip" checked>
+            <span>Pas de rappel si j'ai déjà posté ce jour-là</span>
+          </label>
+        </div>
+
+        <button id="rem-save" class="btn primary block" style="margin-top:16px">Enregistrer mes rappels</button>
+        <p class="muted small" id="rem-hint"></p>
+      </div>
+
+      <div class="card">
         <h4>Mon avatar</h4>
         <div id="me-emoji-picker" class="emoji-picker"></div>
       </div>

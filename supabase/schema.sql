@@ -591,7 +591,69 @@ select public.add_to_realtime('forfeits');
 select public.add_to_realtime('wheel_spins');
 
 -- ---------------------------------------------------------------------
--- 15. (FACULTATIF) CLÔTURE AUTOMATIQUE CHAQUE LUNDI
+-- 15. RAPPELS « pense à pointer »
+--
+--     Chacun choisit ses jours et son heure. Un cron appelle la fonction
+--     Edge « notify » toutes les 15 min ; elle demande ici qui est dû.
+-- ---------------------------------------------------------------------
+create table if not exists public.reminders (
+  user_id      uuid primary key references public.profiles(id) on delete cascade,
+  enabled      boolean not null default false,
+  days         int[]   not null default '{1,2,3,4,5}',   -- 1 = lundi … 7 = dimanche
+  at_time      time    not null default '18:00',
+  skip_if_done boolean not null default true,            -- rien si déjà posté
+  last_sent_on date,                                     -- anti-doublon
+  updated_at   timestamptz not null default now(),
+  constraint reminders_jours_valides
+    check (days <@ array[1,2,3,4,5,6,7] and cardinality(days) between 1 and 7)
+);
+
+alter table public.reminders enable row level security;
+
+-- Réglage personnel : chacun ne voit et ne modifie que le sien
+drop policy if exists "reminders: perso" on public.reminders;
+create policy "reminders: perso" on public.reminders
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Qui doit être rappelé maintenant ? Marque l'envoi dans le même mouvement,
+-- donc deux appels rapprochés du cron n'envoient jamais deux fois.
+-- Réservée au service_role : elle est appelée par la fonction Edge.
+create or replace function public.take_due_reminders(p_now timestamptz default now())
+returns table (r_user_id uuid, r_pseudo text, r_at_time time)
+language plpgsql security definer set search_path = public as $$
+declare
+  now_local timestamp := (p_now at time zone public.app_timezone());
+  v_day date := now_local::date;
+  v_dow int  := extract(isodow from now_local)::int;
+  v_min int  := extract(hour from now_local)::int * 60
+              + extract(minute from now_local)::int;
+begin
+  return query
+  update public.reminders r
+     set last_sent_on = v_day
+    from public.profiles p
+   where p.id = r.user_id
+     and r.enabled
+     and v_dow = any(r.days)
+     and (r.last_sent_on is null or r.last_sent_on < v_day)
+     -- l'heure est passée, mais de moins de 2 h : on ne rattrape pas la veille
+     and v_min - (extract(hour from r.at_time)::int * 60
+                + extract(minute from r.at_time)::int) between 0 and 120
+     -- rien à rappeler si la séance du jour est déjà postée
+     and (not r.skip_if_done or not exists (
+           select 1 from public.workouts w
+            where w.user_id = r.user_id and w.done_on = v_day))
+  returning r.user_id, p.pseudo, r.at_time;
+end $$;
+
+revoke execute on function public.take_due_reminders(timestamptz) from public, anon, authenticated;
+grant execute on function public.take_due_reminders(timestamptz) to service_role;
+
+select public.add_to_realtime('reminders');
+
+-- ---------------------------------------------------------------------
+-- 16. (FACULTATIF) CLÔTURE AUTOMATIQUE CHAQUE LUNDI
 --
 --     L'app clôture déjà les semaines à l'ouverture, donc ceci n'est pas
 --     nécessaire. Si tu veux que ça tombe tout seul le lundi à 8h même
@@ -603,4 +665,30 @@ select public.add_to_realtime('wheel_spins');
 --    '0 6 * * 1',                       -- 6h UTC = 8h à Paris (heure d'été)
 --    $$ select public._settle_pending_weeks() $$
 --  );
+-- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
+-- 17. LE CRON DES RAPPELS  (nécessaire pour que les rappels partent)
+--
+--     Dans Supabase : Database > Extensions, active « pg_cron » ET
+--     « pg_net ». Puis remplace SERVICE_ROLE_KEY ci-dessous par ta clé
+--     service_role (Settings > API Keys) et exécute ce bloc.
+--
+--     La clé reste dans ta base, côté serveur : elle ne part jamais
+--     dans le dépôt ni dans l'app.
+--
+--  select cron.schedule(
+--    'rappels-teamsport',
+--    '*/15 * * * *',                    -- toutes les 15 minutes
+--    $$
+--    select net.http_post(
+--      url     := 'https://TON-PROJET.supabase.co/functions/v1/notify',
+--      headers := jsonb_build_object(
+--        'Content-Type',  'application/json',
+--        'Authorization', 'Bearer SERVICE_ROLE_KEY'),
+--      body    := '{"type":"reminders"}'::jsonb
+--    ) $$
+--  );
+--
+--     Pour arrêter les rappels :  select cron.unschedule('rappels-teamsport');
 -- ---------------------------------------------------------------------

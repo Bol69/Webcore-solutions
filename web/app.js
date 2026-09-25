@@ -103,6 +103,8 @@ const state = {
   forfeits: [],          // la liste de gages partagée
   wheelSpins: [],        // les tirages de roue (candidats de la semaine)
   wheelReady: true,      // false tant que schema.sql n'a pas été relancé
+  reminder: null,        // mon réglage de rappels
+  reminderReady: true,
   weekResults: [],       // bilans hebdo figés (les plus récents d'abord)
   period: "week",
   tab: "feed",
@@ -219,7 +221,7 @@ async function ensureProfile() {
 }
 
 async function loadAll() {
-  const [profiles, workouts, reactions, goals, longGoals, measurements, forfeits, weeks, spins] =
+  const [profiles, workouts, reactions, goals, longGoals, measurements, forfeits, weeks, spins, reminder] =
     await Promise.all([
       sb.from("profiles").select("*"),
       sb.from("workouts").select("*").order("created_at", { ascending: false }).limit(300),
@@ -230,6 +232,7 @@ async function loadAll() {
       sb.from("forfeits").select("*").order("created_at", { ascending: true }),
       sb.from("week_results").select("*").order("week_start", { ascending: false }).limit(60),
       sb.from("wheel_spins").select("*").order("spun_at", { ascending: true }).limit(60),
+      sb.from("reminders").select("*").eq("user_id", state.user.id).maybeSingle(),
     ]);
 
   if (profiles.data) {
@@ -246,6 +249,8 @@ async function loadAll() {
   state.wheelSpins   = spins.data || [];
   // La table n'existe pas encore = schema.sql pas relancé depuis l'ajout de la roue
   state.wheelReady   = !spins.error;
+  state.reminder     = reminder.data || null;
+  state.reminderReady = !reminder.error;
   render();
 }
 
@@ -302,6 +307,7 @@ function render() {
   renderTable();
   renderGages();
   renderMe();
+  renderReminder();
 }
 
 /* ---------- bandeau du jour ---------- */
@@ -987,6 +993,99 @@ $("#table-grid").addEventListener("click", (ev) => {
   const cell = ev.target.closest("[data-detail]");
   if (cell) toast(cell.dataset.detail, 3600);
 });
+
+/* ---------- mes rappels « pense à pointer » ---------- */
+const DAY_LETTERS = ["L", "M", "M", "J", "V", "S", "D"];   // index 0 = lundi (ISO 1)
+let remBuilt = false;
+let remDirty = false;                 // ne pas écraser ce qu'on est en train de régler
+let remDays = new Set([1, 2, 3, 4, 5]);
+
+function renderReminder() {
+  if (!remBuilt) {
+    $("#rem-days").innerHTML = DAY_LETTERS.map((l, i) =>
+      `<button type="button" class="chip" data-day="${i + 1}">${l}</button>`).join("");
+    remBuilt = true;
+  }
+
+  if (!state.reminderReady) {
+    $("#rem-state").textContent = "à activer";
+    $("#rem-hint").innerHTML =
+      "Les rappels ne sont pas encore activés sur la base. Dans " +
+      "<b>Supabase → SQL Editor</b>, relance <code>supabase/schema.sql</code>.";
+    $("#rem-save").disabled = true;
+    $("#rem-settings").classList.add("hidden");
+    return;
+  }
+  $("#rem-save").disabled = false;
+
+  if (!remDirty) {
+    const r = state.reminder;
+    $("#rem-enabled").checked = !!r?.enabled;
+    remDays = new Set(r?.days?.length ? r.days : [1, 2, 3, 4, 5]);
+    $("#rem-time").value = String(r?.at_time || "18:00").slice(0, 5);
+    $("#rem-skip").checked = r ? r.skip_if_done : true;
+  }
+  paintReminder();
+}
+
+function paintReminder() {
+  $$("#rem-days .chip").forEach((c) =>
+    c.classList.toggle("sel", remDays.has(Number(c.dataset.day))));
+
+  const on = $("#rem-enabled").checked;
+  $("#rem-settings").classList.toggle("hidden", !on);
+
+  const heure = $("#rem-time").value || "18:00";
+  $("#rem-state").textContent = !on ? "désactivés"
+    : remDays.size === 7 ? `tous les jours · ${heure}`
+    : `${remDays.size} jour${remDays.size > 1 ? "s" : ""} · ${heure}`;
+
+  // Un rappel ne sert à rien si les notifications ne sont pas autorisées
+  const push = typeof Notification !== "undefined" ? Notification.permission : "denied";
+  $("#rem-hint").innerHTML = on && push !== "granted"
+    ? "⚠️ Active d'abord les notifications ci-dessus, sinon le rappel ne pourra pas t'arriver."
+    : "";
+}
+
+$("#rem-enabled").onchange = () => { remDirty = true; paintReminder(); };
+$("#rem-skip").onchange = () => { remDirty = true; };
+$("#rem-time").oninput = () => { remDirty = true; paintReminder(); };
+$("#rem-days").onclick = (ev) => {
+  const c = ev.target.closest("[data-day]");
+  if (!c) return;
+  const d = Number(c.dataset.day);
+  remDays.has(d) ? remDays.delete(d) : remDays.add(d);
+  remDirty = true;
+  paintReminder();
+};
+
+$("#rem-save").onclick = async () => {
+  const enabled = $("#rem-enabled").checked;
+  if (enabled && !remDays.size) {
+    toast("Choisis au moins un jour.");
+    return;
+  }
+  const btn = $("#rem-save");
+  btn.disabled = true;
+  try {
+    const { error } = await sb.from("reminders").upsert({
+      user_id: state.user.id,
+      enabled,
+      days: [...remDays].sort((a, b) => a - b),
+      at_time: ($("#rem-time").value || "18:00") + ":00",
+      skip_if_done: $("#rem-skip").checked,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    remDirty = false;
+    toast(enabled ? `Rappels enregistrés ⏰` : "Rappels désactivés");
+    await loadAll();
+  } catch (e) {
+    toast("Échec : " + (e.message || e), 4000);
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 /* ---------- réglage de mon contrat hebdo ---------- */
 let goalChipsBuilt = false;
