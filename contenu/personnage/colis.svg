@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 430" width="300" height="430">
+  <path d="M136 272 L132 340 L128 404" fill="none" stroke="#141414" stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M136 272 L132 340 L128 404" fill="none" stroke="#1F5A3D" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/><path d="M164 272 L168 340 L172 404" fill="none" stroke="#141414" stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M164 272 L168 340 L172 404" fill="none" stroke="#1F5A3D" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="120" cy="408" rx="22" ry="11" fill="#1F5A3D" stroke="#141414" stroke-width="3.5"/><ellipse cx="180" cy="408" rx="22" ry="11" fill="#1F5A3D" stroke="#141414" stroke-width="3.5"/>
+  <path d="M118 146 Q150 136 182 146 L176 278 Q150 288 124 278 Z" fill="#1F5A3D" stroke="#141414" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M128 160 L128 230" stroke="#2E7A55" stroke-width="5" stroke-linecap="round"/>
+  
+  <rect x="140" y="124" width="20" height="22" fill="#1F5A3D" stroke="#141414" stroke-width="3.5"/>
+  <circle cx="150" cy="96" r="44" fill="#1F5A3D" stroke="#141414" stroke-width="4"/>
+  <!-- reflet -->
+  <path d="M118 80 Q122 66 134 60" fill="none" stroke="#2E7A55" stroke-width="5" stroke-linecap="round"/>
+  <!-- casquette -->
+  <path d="M106 80 Q110 42 150 40 Q190 42 194 80 Z" fill="#F4A340" stroke="#141414" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M184 76 Q214 72 228 82 Q212 90 186 86 Z" fill="#D9822B" stroke="#141414" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M150 41 L150 78" stroke="#D9822B" stroke-width="3"/>
+  <circle cx="150" cy="40" r="5" fill="#D9822B" stroke="#141414" stroke-width="3"/>
+  <!-- logo colis sur la casquette -->
+  <rect x="122" y="54" width="18" height="15" rx="2" fill="#FFFFFF" stroke="#141414" stroke-width="2.5"/>
+  <path d="M122 60 L140 60 M131 54 L131 60" stroke="#141414" stroke-width="2"/>
+  
+    <ellipse cx="134" cy="92" rx="9" ry="11" fill="#FFFFFF" stroke="#141414" stroke-width="3"/>
+    <circle cx="135" cy="94" r="4.5" fill="#141414"/>
+    <path d="M157 94 Q166 86 175 94" fill="none" stroke="#141414" stroke-width="3.5" stroke-linecap="round"/><path d="M136 112 Q150 124 164 112" fill="none" stroke="#141414" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M122 158 L112 212 L124 236" fill="none" stroke="#141414" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M122 158 L112 212 L124 236" fill="none" stroke="#1F5A3D" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/><path d="M178 158 L188 212 L176 236" fill="none" stroke="#141414" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M178 158 L188 212 L176 236" fill="none" stroke="#1F5A3D" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <g transform="translate(150 222)">
+      <rect x="-46" y="-30" width="92" height="66" rx="4" fill="#D9A86C" stroke="#141414" stroke-width="4"/>
+      <path d="M-46 -8 L46 -8 M-12 -30 L-12 -8 M12 -30 L12 -8" stroke="#141414" stroke-width="3"/>
+      <rect x="-12" y="-30" width="24" height="22" fill="#F4A340" stroke="#141414" stroke-width="3"/>
+      <text x="0" y="22" text-anchor="middle" font-family="Kalam, cursive" font-weight="700" font-size="16" fill="#141414">COLIS</text>
+    </g>
+  <circle cx="106" cy="236" r="13" fill="#1F5A3D" stroke="#141414" stroke-width="3.5"/><circle cx="194" cy="236" r="13" fill="#1F5A3D" stroke="#141414" stroke-width="3.5"/>
+  
+</svg>

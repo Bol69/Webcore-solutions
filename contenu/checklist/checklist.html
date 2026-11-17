@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<title>Checklist page produit</title>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;color:#141414;background:#F3ECDD;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;padding:14mm 15mm 12mm;position:relative;overflow:hidden;page-break-after:always;
+  background:#F3ECDD radial-gradient(#E2D7C1 1.2px,transparent 1.2px);background-size:18px 18px}
+.page:last-child{page-break-after:auto}
+h1{font-family:Kalam,cursive;font-size:36px;line-height:1.05;font-weight:700;max-width:140mm}
+.hl{background:#141414;color:#F3ECDD;padding:0 8px;border-radius:3px}
+.intro{font-size:12.5px;line-height:1.45;margin:6px 0 10px;max-width:140mm}
+.hero{position:absolute;right:13mm;top:8mm;width:30mm}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+.card{background:#fff;border:2.5px solid #141414;border-radius:12px;box-shadow:4px 4px 0 #141414;padding:11px 13px 10px}
+.card h2{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800;margin-bottom:6px}
+.num{flex:none;width:28px;height:28px;border-radius:50%;background:#F4A340;border:2.5px solid #141414;font-size:14px;line-height:23px;text-align:center}
+ul{list-style:none}
+li{position:relative;padding-left:21px;font-size:10.8px;line-height:1.36;margin-bottom:3.5px}
+li::before{content:"";position:absolute;left:0;top:1px;width:12px;height:12px;border:2px solid #1F5A3D;border-radius:3px;background:#fff}
+li b{font-weight:800}
+.why{font-family:Kalam,cursive;font-size:13px;color:#1F5A3D;margin-top:3px;line-height:1.25}
+.law{background:#FFF4E2;border:2px dashed #F4A340;border-radius:8px;padding:5px 7px;font-size:10px;line-height:1.4;margin-top:5px}
+.foot{position:absolute;left:15mm;right:15mm;bottom:6mm;font-size:10px;color:#6b665c;display:flex;justify-content:space-between}
+.test{margin-top:5mm}
+.test .card{padding:12px 14px}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+td,th{border-bottom:1.5px solid #E2D7C1;padding:6px 4px;text-align:left;vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#1F5A3D}
+.big{font-family:Kalam,cursive;font-size:26px;font-weight:700;line-height:1.1;margin:6mm 0 3mm}
+.end{display:flex;gap:6mm;align-items:center;margin-top:6mm}
+.end img{width:36mm}
+.end .card{flex:1;font-size:12.5px;line-height:1.5}
+</style></head><body>
+
+<section class="page">
+  <img class="hero" src="../personnage/colis.svg" alt="">
+  <h1>La checklist d'une page produit qui <span class="hl">vend</span></h1>
+  <p class="intro">Ouvre ta page produit <b>sur ton téléphone</b> (c'est là que la plupart de tes visiteurs achètent), et coche chaque case. Chaque case vide, ce sont des visiteurs qui repartent sans acheter.</p>
+
+  <div class="grid">
+    <div class="card"><h2><span class="num">1</span>Des vraies photos</h2><ul>
+      <li><b>La 1re photo montre le bénéfice</b>, pas juste le produit sur fond blanc.</li>
+      <li>Le produit <b>utilisé en situation</b>, par une vraie personne.</li>
+      <li>Une photo qui montre <b>la taille</b> (dans une main, à côté d'un objet connu).</li>
+      <li>Des <b>gros plans</b> sur la matière, les finitions, les détails.</li>
+      <li>Une <b>vidéo courte</b> (10–20 s) qui montre le produit en action.</li>
+      <li>5 à 8 visuels minimum, même format, même style.</li>
+    </ul><p class="why">→ En ligne, on ne peut pas toucher : les photos remplacent la main.</p></div>
+
+    <div class="card"><h2><span class="num">2</span>Un titre bénéfice</h2><ul>
+      <li>Le titre dit <b>le résultat</b> : « Ta boisson fraîche 24 h » plutôt que « Gourde inox 750 ml ».</li>
+      <li><b>3 à 5 bénéfices en puces</b>, visibles sans faire défiler.</li>
+      <li>La description répond aux questions : <b>taille, matière, entretien, compatibilité</b>.</li>
+      <li>Un guide des tailles si besoin.</li>
+      <li><b>Jamais</b> le texte copié-collé du fournisseur (souvent mal traduit).</li>
+    </ul><p class="why">→ Les gens n'achètent pas un objet, ils achètent ce qu'il change pour eux.</p></div>
+
+    <div class="card"><h2><span class="num">3</span>Prix + raison d'acheter maintenant</h2><ul>
+      <li>Le prix est <b>clair et visible</b> juste sous le titre.</li>
+      <li>Les <b>frais de livraison</b> sont annoncés avant le panier.</li>
+      <li>Une offre qui augmente le panier : <b>lot de 2, -10 % dès 2 achetés</b>…</li>
+      <li>Une urgence <b>vraie</b> : « commandé avant 14 h, expédié aujourd'hui », un vrai stock limité.</li>
+    </ul>
+    <div class="law"><b>⚠️ Attention :</b> un prix barré doit être le <b>prix le plus bas pratiqué sur les 30 derniers jours</b> (règle européenne). Les faux comptes à rebours et faux stocks sont des pratiques commerciales trompeuses.</div></div>
+
+    <div class="card"><h2><span class="num">4</span>La preuve des clients</h2><ul>
+      <li>La <b>note moyenne</b> (★ 4,8 · 312 avis) juste sous le titre.</li>
+      <li>Des <b>avis avec photos</b> de vrais clients.</li>
+      <li>Des avis qui parlent du <b>bénéfice</b>, pas seulement « super ».</li>
+      <li>Tu <b>réponds aux avis négatifs</b>, poliment, avec une solution.</li>
+    </ul>
+    <div class="law"><b>⚠️ Attention :</b> les <b>faux avis sont interdits</b> et sanctionnés. Si tu débutes, envoie ton produit à quelques clients ou proches et demande-leur un avis honnête avec photo.</div></div>
+
+    <div class="card"><h2><span class="num">5</span>Un bouton visible</h2><ul>
+      <li>Le bouton « Ajouter au panier » se voit <b>sans faire défiler</b> sur mobile.</li>
+      <li>Un <b>bouton collant</b> en bas de l'écran quand on descend.</li>
+      <li>Une <b>couleur qui contraste</b> avec le reste de la page.</li>
+      <li><b>Paiement express</b> : Apple Pay, Google Pay, Shop Pay, PayPal.</li>
+      <li>Pas de pop-up qui bloque l'écran dès l'arrivée.</li>
+      <li>La page s'affiche en <b>moins de 3 secondes</b>.</li>
+    </ul><p class="why">→ Chaque seconde et chaque clic en plus fait partir des acheteurs.</p></div>
+
+    <div class="card"><h2><span class="num">6</span>Zéro doute</h2><ul>
+      <li>Un <b>délai de livraison précis</b> (« reçu entre le 12 et le 15 »).</li>
+      <li>La <b>politique de retour</b> écrite en clair sur la page.</li>
+      <li>Les logos de <b>paiement sécurisé</b> près du bouton.</li>
+      <li>Un <b>contact visible</b> (e-mail, chat, WhatsApp).</li>
+      <li>Une <b>FAQ</b> de 4 à 6 questions (livraison, taille, retour, entretien).</li>
+    </ul>
+    <div class="law"><b>Bon à savoir :</b> pour la vente en ligne dans l'UE, le client a <b>14 jours minimum</b> pour se rétracter. Proposer 30 jours rassure encore plus.</div></div>
+  </div>
+  <div class="foot"><span>Checklist page produit · 1/2</span><span>Coche, corrige, reteste.</span></div>
+</section>
+
+<section class="page">
+  <h1>Ton test <span class="hl">en 5 minutes</span></h1>
+  <p class="intro">Fais ce test sur ta page la plus visitée. Note ton score, corrige ce qui manque, et refais le test dans 2 semaines.</p>
+
+  <div class="test"><div class="card"><table>
+    <tr><th>Question</th><th style="width:22mm">Oui / Non</th></tr>
+    <tr><td>En 3 secondes sur mon téléphone, je comprends <b>ce que c'est et ce que ça m'apporte</b>.</td><td>☐ / ☐</td></tr>
+    <tr><td>Je vois le <b>prix</b> et le <b>bouton</b> sans faire défiler.</td><td>☐ / ☐</td></tr>
+    <tr><td>Au moins une photo montre le produit <b>utilisé</b> et sa <b>taille</b>.</td><td>☐ / ☐</td></tr>
+    <tr><td>Il y a des <b>avis réels</b> visibles, idéalement avec photos.</td><td>☐ / ☐</td></tr>
+    <tr><td>Je sais <b>quand je vais recevoir</b> le colis et <b>combien coûte</b> la livraison.</td><td>☐ / ☐</td></tr>
+    <tr><td>Je sais comment <b>renvoyer</b> le produit s'il ne me plaît pas.</td><td>☐ / ☐</td></tr>
+    <tr><td>Je peux payer en <b>1 ou 2 clics</b> (Apple Pay, Shop Pay, PayPal…).</td><td>☐ / ☐</td></tr>
+    <tr><td>La page s'affiche vite, même en 4G.</td><td>☐ / ☐</td></tr>
+  </table></div></div>
+
+  <p class="big">Ton score : ___ / 8</p>
+  <div class="grid">
+    <div class="card"><h2><span class="num">8</span>Bravo</h2><p style="font-size:12px;line-height:1.5">Ta page est solide. Le problème est sûrement ailleurs : <b>le trafic</b> (les bonnes personnes arrivent-elles sur ta page ?) ou <b>le produit</b> lui-même.</p></div>
+    <div class="card"><h2><span class="num">5</span>À 7 : presque</h2><p style="font-size:12px;line-height:1.5">Corrige d'abord les « Non » des <b>3 premières lignes</b> : ce sont eux qui font partir les visiteurs dans les premières secondes.</p></div>
+  </div>
+  <div class="card" style="margin-top:5mm"><h2><span class="num">0</span>Moins de 5</h2><p style="font-size:12px;line-height:1.5">Ne dépense plus un euro en publicité avant d'avoir corrigé ta page. Envoyer du trafic sur une page qui ne rassure pas, c'est payer pour faire fuir des clients.</p></div>
+
+  <div class="end">
+    <img src="../personnage/victoire.svg" alt="">
+    <div class="card"><b>Le chiffre à suivre :</b> ton <b>taux d'ajout au panier</b> (dans les statistiques de Shopify ou de ta boutique). Note-le avant de corriger ta page, puis 2 semaines après. C'est la meilleure preuve que tes changements marchent.</div>
+  </div>
+  <div class="foot"><span>Checklist page produit · 2/2</span><span>Coche, corrige, reteste.</span></div>
+</section>
+</body></html>
