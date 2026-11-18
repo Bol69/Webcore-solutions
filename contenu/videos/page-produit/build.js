@@ -1,9 +1,9 @@
 // Construit video.html (animation pilotée par seek(t)) à partir des poses SVG
 const fs = require('fs');
 const path = require('path');
-const POSES = path.join(__dirname, '../avatar/poses/');
+const POSES = path.join(__dirname, '../../personnage/');
 const poses = {};
-for (const f of fs.readdirSync(POSES)) poses[f.replace('.svg', '')] = fs.readFileSync(POSES + f, 'utf8');
+for (const f of fs.readdirSync(POSES).filter(f => f.endsWith('.svg'))) poses[f.replace('.svg', '')] = fs.readFileSync(POSES + f, 'utf8');
 
 const hl = s => s.replace(/\*(.+?)\*/g, '<span class="hl">$1</span>');
 
@@ -232,5 +232,5 @@ window.seek=function(t){
 };
 seek(0);
 </script></body></html>`;
-fs.writeFileSync(path.join(__dirname, 'video.html'), html);
+fs.writeFileSync(process.argv[2] || path.join(__dirname, 'video.html'), html);
 console.log('ok');
